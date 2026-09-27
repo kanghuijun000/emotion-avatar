@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Natural Emotion AI Avatar</title>
+  <title>Natural Emotion Intensity Avatar</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Puter.js SDK -->
   <script src="https://js.puter.com/v2/"></script>
   <style>
     body {
       touch-action: manipulation;
-      transition: background-color 0.8s ease;
+      transition: background 1.0s ease-in-out; /* 배경 그라데이션 전환 부드럽게 */
     }
   </style>
 </head>
@@ -20,7 +20,7 @@
     <!-- 2D 아바타 캔버스 -->
     <div class="relative">
       <canvas id="faceCanvas" width="220" height="220" class="rounded-3xl bg-slate-900/90 border border-white/10 shadow-2xl backdrop-blur-sm transition-all duration-500"></canvas>
-      <div id="loading" class="hidden absolute -bottom-5 left-0 right-0 text-center text-[11px] text-sky-400 animate-pulse font-semibold">AI 반응 생성 및 표정/색상 전환 중...</div>
+      <div id="loading" class="hidden absolute -bottom-5 left-0 right-0 text-center text-[11px] text-sky-400 animate-pulse font-semibold">AI가 상황을 파악하며 생각 중...</div>
     </div>
 
     <!-- AI 대답 말풍선 -->
@@ -29,13 +29,13 @@
         <span>🤖 AI 아바타의 대답</span>
       </div>
       <p id="aiReplyText" class="text-xs text-slate-200 leading-relaxed break-keep">
-        메시지를 입력해 보세요! 상황과 인칭을 정확히 이해하고 생생하게 대답해요.
+        메시지를 입력해 보세요.
       </p>
     </div>
 
     <!-- 텍스트 입력창 -->
     <div class="w-full space-y-2">
-      <textarea id="textInput" placeholder="메시지를 입력해보세요 (예: 너 뒤에 엄청 큰 거미 있어!, 오늘 기분 최고야!, 왜 내 말 안 들어?)" rows="3" class="w-full bg-slate-900/80 border border-white/10 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none shadow-inner transition-colors duration-300"></textarea>
+      <textarea id="textInput" placeholder="메시지를 입력해보세요 (예: 오늘 기분 최고!, 약간 기분 상하네, 부장님 때문에 폭발할 것 같아!!!)" rows="3" class="w-full bg-slate-900/80 border border-white/10 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none shadow-inner transition-colors duration-300"></textarea>
       
       <!-- 에러 출력창 -->
       <div id="errorBox" class="hidden text-[11px] text-red-400 bg-red-950/50 border border-red-800/50 rounded-xl p-2.5 break-all"></div>
@@ -55,17 +55,6 @@
     let targetEmotions = { happy: 0, sad: 0, angry: 0, surprised: 0, fear: 0, disgust: 0, neutral: 1 };
     let currentEmotions = { ...targetEmotions };
 
-    // 감정별 배경 색상 (R, G, B)
-    const emotionBgColors = {
-      happy: { r: 55, g: 25, b: 20 },     // 따뜻한 오렌지 핑크 톤
-      sad: { r: 10, g: 24, b: 42 },       // 깊은 딥블루 톤
-      angry: { r: 48, g: 10, b: 12 },     // 다크 레드 톤
-      surprised: { r: 40, g: 18, b: 48 }, // 몽환적인 퍼플 톤
-      fear: { r: 8, g: 32, b: 28 },       // 오싹한 다크 다이안/그린 톤
-      disgust: { r: 24, g: 28, b: 10 },   // 탁한 올리브 톤
-      neutral: { r: 2, g: 6, b: 23 }      // 기본 다크 슬레이트 톤
-    };
-
     // 감정별 피부 색상 (R, G, B)
     const emotionSkinColors = {
       happy: { r: 255, g: 218, b: 120 },  // 밝고 생기있는 피치 옐로우
@@ -75,6 +64,17 @@
       fear: { r: 160, g: 170, b: 200 },   // 새파랗게 질린 얼굴
       disgust: { r: 190, g: 205, b: 130 }, // 퀴퀴한 노란빛 녹색
       neutral: { r: 250, g: 204, b: 21 }   // 기본 옐로우
+    };
+
+    // [강화] 감정별 배경 색상 (R, G, B) - 그라데이션용 두 색상
+    const emotionBgColors = {
+      happy: { c1: { r: 55, g: 25, b: 20 }, c2: { r: 74, g: 44, b: 26 } },     // 따뜻한 오렌지 핑크 톤
+      sad: { c1: { r: 10, g: 24, b: 42 }, c2: { r: 5, g: 16, b: 32 } },       // 깊은 딥블루 톤
+      angry: { c1: { r: 48, g: 10, b: 12 }, c2: { r: 30, g: 5, b: 5 } },     // 다크 레드 톤
+      surprised: { c1: { r: 40, g: 18, b: 48 }, c2: { r: 20, g: 10, b: 30 } }, // 몽환적인 퍼플 톤
+      fear: { c1: { r: 8, g: 32, b: 28 }, c2: { r: 3, g: 16, b: 16 } },       // 오싹한 다크 지안/그린 톤
+      disgust: { c1: { r: 24, g: 28, b: 10 }, c2: { r: 16, g: 20, b: 5 } },   // 탁한 올리브 톤
+      neutral: { c1: { r: 2, g: 6, b: 23 }, c2: { r: 1, g: 3, b: 15 } }      // 기본 다크 슬레이트 톤
     };
 
     // 파티클 관리
@@ -90,7 +90,7 @@
             <span>${key}</span>
             <span id="val-${key}" class="text-sky-400">0%</span>
           </div>
-          <div class="w-full bg-slate-800/80 h-1.5 rounded-full overflow-hidden">
+          <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
             <div id="bar-${key}" class="bg-sky-500 h-full transition-all duration-300" style="width: 0%"></div>
           </div>
         </div>
@@ -118,14 +118,18 @@
       let cx = width / 2;
       let cy = height / 2;
 
-      // --- [배경색 동적 계산] ---
-      let bgR = 0, bgG = 0, bgB = 0;
+      // --- [강화] 배경색 동적 그라데이션 계산 및 전환 ---
+      let bgC1_R = 0, bgC1_G = 0, bgC1_B = 0;
+      let bgC2_R = 0, bgC2_G = 0, bgC2_B = 0;
       for (let k in e) {
-        bgR += emotionBgColors[k].r * e[k];
-        bgG += emotionBgColors[k].g * e[k];
-        bgB += emotionBgColors[k].b * e[k];
+        bgC1_R += emotionBgColors[k].c1.r * e[k];
+        bgC1_G += emotionBgColors[k].c1.g * e[k];
+        bgC1_B += emotionBgColors[k].c1.b * e[k];
+        bgC2_R += emotionBgColors[k].c2.r * e[k];
+        bgC2_G += emotionBgColors[k].c2.g * e[k];
+        bgC2_B += emotionBgColors[k].c2.b * e[k];
       }
-      bgBody.style.backgroundColor = `rgb(${Math.round(bgR)}, ${Math.round(bgG)}, ${Math.round(bgB)})`;
+      bgBody.style.background = `linear-gradient(to bottom, rgb(${Math.round(bgC1_R)}, ${Math.round(bgC1_G)}, ${Math.round(bgC1_B)}), rgb(${Math.round(bgC2_R)}, ${Math.round(bgC2_G)}, ${Math.round(bgC2_B)}))`;
 
       // --- [얼굴 피부색 동적 계산] ---
       let skinR = 0, skinG = 0, skinB = 0;
@@ -145,7 +149,7 @@
         }
       }
 
-      // 떨림 효과 (Fear 및 강한 Angry)
+      // 셰이킹 (Fear 및 강한 Angry)
       let shakeIntensity = 0;
       if (e.fear > 0.25) shakeIntensity = Math.min(e.fear * 6, 5);
       if (e.angry > 0.65) shakeIntensity = Math.min((e.angry - 0.5) * 5, 4);
@@ -332,7 +336,7 @@
 
       if (!text) {
         targetEmotions = { happy: 0, sad: 0, angry: 0, surprised: 0, fear: 0, disgust: 0, neutral: 1 };
-        aiReplyText.innerText = "메시지를 입력해 보세요! 상황과 인칭을 정확히 이해하고 생생하게 대답해요.";
+        aiReplyText.innerText = "메시지를 입력해 보세요.";
         return;
       }
 
@@ -340,24 +344,35 @@
         document.getElementById('loading').classList.remove('hidden');
 
         try {
-          const prompt = `당신은 대화 상대인 사용자와 직접 이야기를 나누고 있는 인격화된 AI 캐릭터 아바타입니다.
+          // [기획 전체 반영] 프롬프트 고도화
+          const prompt = `당신은 사용자와 1:1 대화를 나누는 인격화된 AI 아바타 캐릭터입니다.
 
-사용자의 말: "${text}"
+사용자의 입력: "${text}"
 
-[관계 및 상황 판단 규칙 - 최우선]
-- 상대방(사용자)이 "너", "너 뒤에" 등이라고 말하면 주어는 AI 본인(나)을 가리키는 것입니다.
-- 예시: "너 뒤에 거미 있어!" ➔ AI 반응: "끼악?! 내 뒤에 거미가 있다고?! 어떡해, 도와줘!" (fear/surprised 고득점)
-- 절대로 지시조나 복사된 문장(~있다니 조심해)을 말하지 말고, 감정에 완전히 몰입한 실제 사람처럼 친근하게 대화하세요.
-- 감정 수치는 30% 수준의 약한 감정과 90% 수준의 극심한 감정 차이를 정밀하게 구분하여 0.0 ~ 1.0으로 산출하세요.
-- 모든 감정 수치의 합은 정확히 1.0이 되도록 설정하세요.
+[대화 및 상황 판단 지침 - 가장 중요]
+1. **뚱딴지같은 상황("그만 때려" 등) 대응**:
+   - 사용자가 "그만 때려", "너 왜 날 깨물어"처럼 현실적으로 불가능한 물리적 행위를 언급하면:
+     ➔ AI는 자신이 물리적 신체가 없는 '화면 속 AI'임을 생각하고 **어안이 벙벙하고 매우 당황스러운 반응(surprised)**을 보여야 합니다.
+     ➔ 자신이 때리고 있었다는 듯 순순히 맞장구치지 마세요.
+     ➔ 예시 답변: *"어...? 내가 널 어떻게 때려?! 갑자기 무슨 소리야?!"*, *"이쿠쿠, 내가 화면 밖으로 나가서 때리기라도 했다는 거야?! 억울하고 황당하네!"*
+2. **극도의 분노(\`angry\`) 처리**:
+   - 당신이 화가 났을 때 착한 AI처럼 "무슨 일 있어?", "왜 그래?", "괜찮아?" 하고 **사용자의 사정을 묻거나 걱정해 주는 반응을 완전히 차단**하세요.
+   - 오직 **자신이 받은 자극과 분노, 불쾌함에만 집중**하여 식직설적으로 표출하세요.
+   - 예시 답변: *"야, 적당히 좀 해! 진짜 선 넘네?"*, *"말 걸지 마. 너랑 얘기하고 싶지도 않아."*
+3. **일상적/유동적 질문 대응**:
+   - "왜 내 말 안 듣고 있어?", "누구 알아?" 등 감정 유발 말이 아니어도 문맥을 파악하여 **\`neutral\` 상태에서 자연스러운 친구 말투로 대답**하세요. 기계적인 정보 나열 금지.
+4. **말투 스타일**:
+   - 실제 친구끼리 대화하듯 입체적인 한국어 반말 구어체를 사용하세요.
 
 [1단계: 감정 분석]
-AI 본인이 이 말을 들었을 때 느낄 세밀한 감정 수치(happy, sad, angry, surprised, fear, disgust, neutral)를 0.0 ~ 1.0으로 산출하세요.
+위 지침에 따라 AI 본인이 느낄 정밀 감정 수치(happy, sad, angry, surprised, fear, disgust, neutral)를 0.0 ~ 1.0 범위로 결정하세요. (합계가 1.0이 되도록)
+* 뚱딴지같은 질문은 **\`surprised\`** 수치를 극대화하세요 (0.6 이상).
+* 화나는 질문은 사용자를 걱정하지 말고 **\`angry\`** 수치만 극대화하세요 (0.6 이상).
 
-[2단계: 대화 작성]
-감정의 세기(강도)에 맞춰 1~2문장의 생생하고 자연스러운 대화체로 답변(reply)을 작성하세요.
+[2단계: 대화 답변 작성]
+상황과 지침에 완전히 몰입한 1~2문장의 생생한 대답을 작성하세요.
 
-반드시 아래 JSON 형식으로만 응답하세요:
+응답은 오직 아래 JSON 포맷으로만 반환하세요:
 {
   "emotions": {
     "happy": 0.0,
@@ -368,7 +383,7 @@ AI 본인이 이 말을 들었을 때 느낄 세밀한 감정 수치(happy, sad,
     "disgust": 0.0,
     "neutral": 1.0
   },
-  "reply": "생생하고 자연스러운 AI의 답변"
+  "reply": "문맥과 지침에 완벽히 부합하는 생생한 답변"
 }`;
 
           const response = await puter.ai.chat(prompt);
