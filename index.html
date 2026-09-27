@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Realtime 2D Emotion Avatar</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { touch-action: manipulation; }
+  </style>
+</head>
+<body class="bg-slate-950 text-white min-h-[100dvh] flex flex-col items-center justify-center p-4">
+
+  <div class="w-full max-w-xs flex flex-col items-center gap-4 my-auto">
+    <!-- 아바타 캔버스 -->
+    <div class="relative">
+      <canvas id="faceCanvas" width="220" height="220" class="rounded-3xl bg-slate-900 border border-slate-800 shadow-lg"></canvas>
+      <div id="loading" class="hidden absolute -bottom-5 left-0 right-0 text-center text-[10px] text-sky-400 animate-pulse">AI 감정 분석 중...</div>
+    </div>
+
+    <!-- API 키 및 입력창 -->
+    <div class="w-full space-y-2">
+      <input type="password" id="apiKeyInput" placeholder="Gemini API Key 입력" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500">
+      
+      <textarea id="textInput" placeholder="메시지를 입력해보세요 (예: 오늘 정말 기분 좋다!)" rows="2" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-sky-500 resize-none"></textarea>
+    </div>
+
+    <!-- 감정 수치 HUD -->
+    <div class="w-full bg-slate-900/80 border border-slate-800 rounded-2xl p-3 space-y-2" id="gaugeBox">
+      <!-- JavaScript로 수치 바 생성됨 -->
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('faceCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // 기본 감정 데이터
+    let targetEmotions = { happy: 0, sad: 0, angry: 0, surprised: 0, fear: 0, disgust: 0, neutral: 1 };
+    let currentEmotions = { ...targetEmotions };
+
+    // UI 동적 생성
+    function renderGauges() {
+      const box = document.getElementById('gaugeBox');
+      box.innerHTML = Object.keys(targetEmotions).map(key => `
+        <div class="space-y-0.5">
+          <div class="flex justify-between text-[11px] text-slate-300 capitalize">
+            <span>${key}</span>
+            <span id="val-${key}" class="text-sky-400">0%</span>
+          </div>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+            <div id="bar-${key}" class="bg-sky-500 h-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+      `).join('');
+    }
+    renderGauges();
+
+    // 캔버스 그리기 루프
+    function draw() {
+      const lerp = (a, b) => a + (b - a) * 0.12;
+      for (let k in targetEmotions) {
+        currentEmotions[k] = lerp(currentEmotions[k], targetEmotions[k]);
+        const percent = Math.round(currentEmotions[k] * 100);
+        if (document.getElementById(`val-${k}`)) {
+          document.getElementById(`val-${k}`).innerText = percent + '%';
+          document.getElementById(`bar-${k}`).style.width = percent + '%';
+        }
+      }
+
+      const e = currentEmotions;
+      const width = canvas.width, height = canvas.height;
+      const cx = width / 2, cy = height / 2;
+
+      ctx.clearRect(0, 0, width, height);
+
+      // 얼굴
+      ctx.beginPath();
+      ctx.arc(cx, cy, 75, 0, Math.PI * 2);
+      ctx.fillStyle = '#facc15';
+      ctx.fill();
+
+      // 눈
+      const eyeSize = 7 + e.surprised * 9;
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath(); ctx.arc(cx - 28, cy - 14, eyeSize, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + 28, cy - 14, eyeSize, 0, Math.PI * 2); ctx.fill();
+
+      // 눈썹
+      ctx.lineWidth = 5; ctx.strokeStyle = '#0f172a'; ctx.lineCap = 'round';
+      const offsetY = (e.sad * 6) - (e.angry * 6) - (e.surprised * 10);
+      const tilt = (e.angry * 0.35) - (e.sad * 0.35);
+
+      ctx.beginPath();
+      ctx.moveTo(cx - 48, cy - 35 + offsetY - tilt * 15);
+      ctx.lineTo(cx - 10, cy - 35 + offsetY + tilt * 15);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(cx + 10, cy - 35 + offsetY + tilt * 15);
+      ctx.lineTo(cx + 48, cy - 35 + offsetY - tilt * 15);
+      ctx.stroke();
+
+      // 입
+      ctx.beginPath();
+      if (e.surprised > 0.4) {
+        ctx.arc(cx, cy + 28, 8 + e.surprised * 12, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a'; ctx.fill();
+      } else {
+        const curve = (e.happy * 30) - (e.sad * 30) - (e.angry * 15);
+        ctx.moveTo(cx - 32, cy + 28);
+        ctx.quadraticCurveTo(cx, cy + 28 + curve, cx + 32, cy + 28);
+        ctx.stroke();
+      }
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+
+    // AI API 호출 (디바운스)
+    let timer;
+    document.getElementById('textInput').addEventListener('input', (evt) => {
+      clearTimeout(timer);
+      const text = evt.target.value.trim();
+      const apiKey = document.getElementById('apiKeyInput').value.trim();
+
+      if (!text) {
+        targetEmotions = { happy: 0, sad: 0, angry: 0, surprised: 0, fear: 0, disgust: 0, neutral: 1 };
+        return;
+      }
+
+      timer = setTimeout(async () => {
+        if (!apiKey) {
+          alert("Gemini API Key를 먼저 입력해주세요!");
+          return;
+        }
+        document.getElementById('loading').classList.remove('hidden');
+
+        try {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{ text: `입력문장: "${text}". 상대방이 느낄 감정 수치를 JSON으로 반환하세요. 키: happy, sad, angry, surprised, fear, disgust, neutral (값 범위: 0.0~1.0). 다른 문자 없이 순수 JSON만 출력.` }]
+              }],
+              generationConfig: { responseMimeType: "application/json" }
+            })
+          });
+
+          const data = await res.json();
+          const parsed = JSON.parse(data.candidates[0].content.parts[0].text);
+          targetEmotions = parsed;
+        } catch (err) {
+          console.error(err);
+        } finally {
+          document.getElementById('loading').classList.add('hidden');
+        }
+      }, 500);
+    });
+  </script>
+</body>
+</html>
