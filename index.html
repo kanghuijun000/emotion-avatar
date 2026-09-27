@@ -20,7 +20,7 @@
     <!-- 2D 아바타 캔버스 -->
     <div class="relative">
       <canvas id="faceCanvas" width="220" height="220" class="rounded-3xl bg-slate-900/90 border border-white/10 shadow-2xl backdrop-blur-sm transition-all duration-500"></canvas>
-      <div id="loading" class="hidden absolute -bottom-5 left-0 right-0 text-center text-[11px] text-sky-400 animate-pulse font-semibold">AI가 이전 대화를 기억하며 생각 중...</div>
+      <div id="loading" class="hidden absolute -bottom-5 left-0 right-0 text-center text-[11px] text-sky-400 animate-pulse font-semibold">AI가 생각 중...</div>
     </div>
 
     <!-- AI 대답 말풍선 -->
@@ -347,15 +347,21 @@
         chatHistory.push({ role: 'user', content: text });
 
         try {
-          // 자연스러운 감정 판단을 위해 가벼워진 프롬프트
-          const prompt = `당신은 사용자와 대화하는 AI 아바타입니다.
+          let historyContext = "";
+          if (chatHistory.length > 1) {
+            historyContext = "\n\n[이전 대화 기록]\n" + 
+              chatHistory.slice(0, -1).map(h => `${h.role === 'user' ? '사용자' : 'AI'}: ${h.content}`).join("\n");
+          }
 
-사용자의 입력: "${text}"
+          const prompt = `당신은 사용자와 대화하는 AI 아바타입니다.
+${historyContext}
+
+사용자의 현재 입력: "${text}"
 
 [대화 및 감정 판단 기준]
 1. 일반적인 인사나 평범한 대화에서는 과도하게 놀라지 말고 neutral(평온)을 높게(0.6~0.9) 설정하세요.
 2. 각 상황에 어울릴 때만 적절한 감정(happy, sad, angry, surprised, fear, disgust)을 반영하세요.
-3. 정말 당황스럽거나 놀라운 내용일 때만 surprised를 높게 부여하세요.
+3. 이전 대화 맥락이 있다면 이를 기억하고 연결되는 자연스러운 답변을 하세요.
 4. 자연스러운 친구 말투(반말)로 1~2문장의 답변을 작성하세요.
 
 응답은 오직 아래 JSON 포맷으로만 반환하세요:
@@ -372,7 +378,7 @@
   "reply": "자연스러운 답변"
 }`;
 
-          const response = await puter.ai.chat(prompt, chatHistory);
+          const response = await puter.ai.chat(prompt);
           const responseText = response.toString().trim();
 
           const jsonMatch = responseText.match(/\{[\s\S]*\}/);
