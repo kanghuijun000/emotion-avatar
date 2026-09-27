@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Stable Animated 2D Emotion Avatar</title>
+  <title>Emotion Synchronized AI Avatar</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Puter.js SDK -->
   <script src="https://js.puter.com/v2/"></script>
@@ -17,7 +17,7 @@
     <!-- 2D 아바타 캔버스 -->
     <div class="relative">
       <canvas id="faceCanvas" width="220" height="220" class="rounded-3xl bg-slate-900 border border-slate-800 shadow-xl"></canvas>
-      <div id="loading" class="hidden absolute -bottom-5 left-0 right-0 text-center text-[11px] text-sky-400 animate-pulse font-semibold">AI 표정 분석 및 답변 생성 중...</div>
+      <div id="loading" class="hidden absolute -bottom-5 left-0 right-0 text-center text-[11px] text-sky-400 animate-pulse font-semibold">AI 표정 분석 및 맞춤 말투 생성 중...</div>
     </div>
 
     <!-- AI 대답 말풍선 -->
@@ -26,13 +26,13 @@
         <span>🤖 AI 아바타의 대답</span>
       </div>
       <p id="aiReplyText" class="text-xs text-slate-200 leading-relaxed break-keep">
-        메시지를 입력하시면 감정을 정밀하게 조율하여 표정과 함께 대답해 드려요!
+        메시지를 입력하시면 감정에 완전히 동화된 말투로 대답해 드려요!
       </p>
     </div>
 
     <!-- 텍스트 입력창 -->
     <div class="w-full space-y-2">
-      <textarea id="textInput" placeholder="메시지를 입력해보세요 (예: 황당하면서도 약간 웃기네, 너무 슬프고 화가 난다!)" rows="3" class="w-full bg-slate-900 border border-slate-800 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none shadow-inner"></textarea>
+      <textarea id="textInput" placeholder="메시지를 입력해보세요 (예: 부장님이 또 야근시키네 진짜 열받아, 밤길에 뒤에서 이상한 소리가 들려...)" rows="3" class="w-full bg-slate-900 border border-slate-800 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none shadow-inner"></textarea>
       
       <!-- 에러 출력창 -->
       <div id="errorBox" class="hidden text-[11px] text-red-400 bg-red-950/50 border border-red-800/50 rounded-xl p-2.5 break-all"></div>
@@ -92,7 +92,7 @@
       let cx = width / 2;
       let cy = height / 2;
 
-      // 가장 우세한 핵심 감정 선별 (Dominant Emotion)
+      // 가장 우세한 핵심 감정 선별
       let dominant = 'neutral';
       let maxVal = 0;
       for (let k in e) {
@@ -102,7 +102,7 @@
         }
       }
 
-      // 0. 공포(Fear) 셰이킹 제한 적용
+      // 공포(Fear) 셰이킹
       if (e.fear > 0.3) {
         const shakeIntensity = Math.min(e.fear * 5, 4);
         cx += (Math.random() - 0.5) * shakeIntensity;
@@ -111,8 +111,8 @@
 
       ctx.clearRect(0, 0, width, height);
 
-      // --- [1. 감정 파티클 생성 - 과부하 방지 안전장치 적용] ---
-      if (particles.length < 25) { // 최대 파티클 수 제한
+      // 감정 파티클 생성
+      if (particles.length < 25) {
         if (e.happy > 0.4 && frameCount % 15 === 0) {
           particles.push({ type: 'heart', x: cx + (Math.random() - 0.5) * 110, y: cy + 40, size: 10 + Math.random() * 6, vy: -1.2, alpha: 1 });
         }
@@ -124,7 +124,7 @@
         }
       }
 
-      // 파티클 업데이트 및 출력
+      // 파티클 업데이트
       for (let i = particles.length - 1; i >= 0; i--) {
         let p = particles[i];
         if (p.type === 'heart') {
@@ -145,15 +145,13 @@
         if (p.alpha <= 0 || p.y < 0 || p.y > height) particles.splice(i, 1);
       }
 
-      // --- [2. 아바타 이목구비 렌더링 (경계값 보정 적용)] ---
-
-      // 얼굴 베이스
+      // 아바타 그려주기
       ctx.beginPath();
       ctx.arc(cx, cy, 75, 0, Math.PI * 2);
       ctx.fillStyle = '#facc15';
       ctx.fill();
 
-      // 질림 그림자 (Fear)
+      // Fear 그림자
       if (e.fear > 0.25) {
         ctx.save();
         ctx.beginPath(); ctx.arc(cx, cy, 75, 0, Math.PI * 2); ctx.clip();
@@ -162,7 +160,7 @@
         ctx.restore();
       }
 
-      // 볼터치 (Happy)
+      // Happy 볼터치
       if (e.happy > 0.2) {
         ctx.fillStyle = `rgba(244, 63, 94, ${Math.min(0.7, e.happy * 0.7)})`;
         ctx.beginPath(); ctx.arc(cx - 42, cy + 10, 14, 0, Math.PI * 2); ctx.fill();
@@ -176,12 +174,10 @@
       const drawEye = (isLeft) => {
         const eyeCx = isLeft ? cx - 28 : cx + 28;
         if (e.happy > 0.65) {
-          // 우세하게 기쁠 때만 웃는 눈
           ctx.beginPath();
           ctx.arc(eyeCx, cy - 8, 10, Math.PI * 1.1, Math.PI * 1.9);
           ctx.stroke();
         } else {
-          // 크기 및 색상 제한 보정
           const eyeR = Math.min(15, Math.max(3, 7 + (e.surprised * 7) - (e.disgust * 2)));
           ctx.beginPath();
           ctx.arc(eyeCx, cy - 14, eyeR, 0, Math.PI * 2);
@@ -192,16 +188,15 @@
       drawEye(true);
       drawEye(false);
 
-      // 눈썹 (기울기 및 높이 한계 지정으로 깨짐 방지)
+      // 눈썹
       ctx.lineWidth = 5;
       ctx.lineCap = 'round';
       ctx.strokeStyle = '#0f172a';
 
       const rawEyOffY = (e.sad * 8) - (e.angry * 8) - (e.surprised * 10);
-      const eyOffY = Math.max(-14, Math.min(10, rawEyOffY)); // Y축 오프셋 -14px ~ +10px 제한
-
+      const eyOffY = Math.max(-14, Math.min(10, rawEyOffY));
       const rawTilt = (e.angry * 0.35) - (e.sad * 0.35);
-      const eyTilt = Math.max(-0.4, Math.min(0.4, rawTilt)); // 기울기 범위 제한
+      const eyTilt = Math.max(-0.4, Math.min(0.4, rawTilt));
 
       ctx.beginPath();
       ctx.moveTo(cx - 48, cy - 35 + eyOffY - eyTilt * 15);
@@ -213,7 +208,7 @@
       ctx.lineTo(cx + 48, cy - 35 + eyOffY - eyTilt * 15);
       ctx.stroke();
 
-      // 입 모양 (복합 감정 가중치 종합 계산)
+      // 입 모양
       ctx.beginPath();
       if (dominant === 'surprised' && e.surprised > 0.45) {
         const mouthR = Math.min(20, 8 + e.surprised * 10);
@@ -230,7 +225,6 @@
         ctx.lineTo(cx + 24, cy + 32);
         ctx.stroke();
       } else {
-        // 커브 굴곡 범위 한계 설정 (-28 ~ +30)
         const rawCurve = (e.happy * 30) - (e.sad * 28) - (e.angry * 16);
         const mouthCurve = Math.max(-28, Math.min(30, rawCurve));
         ctx.moveTo(cx - 28, cy + 26);
@@ -238,7 +232,7 @@
         ctx.stroke();
       }
 
-      // 상단 감정 아이콘 오브젝트 (Dominant 감정에 따라 하나만 깔끔하게 출력)
+      // 상단 이펙트
       if (dominant === 'sad' && e.sad > 0.45) {
         ctx.fillStyle = 'rgba(100, 116, 139, 0.8)';
         ctx.beginPath();
@@ -257,7 +251,7 @@
     }
     draw();
 
-    // AI API 호출 (Puter.js 이용)
+    // AI API 호출
     let timer;
     const errorBox = document.getElementById('errorBox');
     const aiReplyText = document.getElementById('aiReplyText');
@@ -279,7 +273,7 @@
 
       if (!text) {
         targetEmotions = { happy: 0, sad: 0, angry: 0, surprised: 0, fear: 0, disgust: 0, neutral: 1 };
-        aiReplyText.innerText = "메시지를 입력하시면 감정을 정밀하게 조율하여 표정과 함께 대답해 드려요!";
+        aiReplyText.innerText = "메시지를 입력하시면 감정에 완전히 동화된 말투로 대답해 드려요!";
         return;
       }
 
@@ -287,9 +281,20 @@
         document.getElementById('loading').classList.remove('hidden');
 
         try {
-          const prompt = `사용자의 문장에 대해 2가지 작업을 수행하세요:
-1. 문장의 감정 수치(happy, sad, angry, surprised, fear, disgust, neutral)를 0.0~1.0 사이 값으로 계산하세요. (복합 감정인 경우 복수 비율 반영 가능)
-2. 사용자의 문장에 어울리는 따뜻하고 친근한 한국어 답변(reply)을 1~2문장으로 작성하세요.
+          const prompt = `당신은 사용자의 감정에 완전히 연동되어 반응하는 AI 아바타입니다.
+사용자의 입력 문장: "${text}"
+
+[1단계: 감정 측정]
+문장의 감정 수치(happy, sad, angry, surprised, fear, disgust, neutral)를 0.0 ~ 1.0 사이로 평가하세요.
+
+[2단계: 감정 기반 말투 및 답변 작성 (매우 중요!)]
+측정된 감정 중 가장 높은 감정에 맞추어 **반드시 완전히 몰입된 말투**로 1~2문장의 답변(reply)을 작성하세요:
+- **angry(분노)가 높다면**: 같이 엄청 화내고 짜증 내거나 억울해하는 말투로 답변 (예: "뭐?! 진짜 너무한 거 아니야?! 나까지 열받네!")
+- **fear(공포/무서움)가 높다면**: 겁에 질리거나 덜덜 떨며 당황하는 말투로 답변 (예: "히익...! 너무 무섭잖아... 나 지금 소름 돋았어...")
+- **sad(슬픔)가 높다면**: 눈물 흘리며 같이 슬퍼하거나 흑흑거리는 말투로 답변 (예: "흑흑... 진짜 너무 슬프다... 어떡해...")
+- **happy(기쁨)가 높다면**: 아주 신나고 기분 좋게 텐션 높은 말투로 답변 (예: "와!! 너무 잘됐다!! 듣기만 해도 기분 완전 좋아!")
+- **surprised(놀람)가 높다면**: 깜짝 놀라 억 소리 나는 반응의 말투로 답변 (예: "헐, 대박! 진짜로?! 그게 정말이야?!")
+- **disgust(혐오)가 높다면**: 으 질색하거나 인상 쓰는 말투로 답변 (예: "으... 생각만 해도 인상 쓰여... 너무 별로다...")
 
 반드시 아래 JSON 형식으로만 응답하세요:
 {
@@ -302,10 +307,8 @@
     "disgust": 0.0,
     "neutral": 1.0
   },
-  "reply": "사용자에게 할 AI의 대답"
-}
-
-사용자 문장: "${text}"`;
+  "reply": "감정에 맞춘 AI 답변"
+}`;
 
           const response = await puter.ai.chat(prompt);
           const responseText = response.toString().trim();
