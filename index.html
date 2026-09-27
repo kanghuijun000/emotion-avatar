@@ -15,7 +15,7 @@
     <!-- 아바타 캔버스 -->
     <div class="relative">
       <canvas id="faceCanvas" width="220" height="220" class="rounded-3xl bg-slate-900 border border-slate-800 shadow-lg"></canvas>
-      <div id="loading" class="hidden absolute -bottom-5 left-0 right-0 text-center text-[10px] text-sky-400 animate-pulse">AI 감정 분석 중...</div>
+      <div id="loading" class="hidden absolute -bottom-5 left-0 right-0 text-center text-[11px] text-sky-400 animate-pulse font-semibold">AI 감정 분석 중...</div>
     </div>
 
     <!-- API 키 및 입력창 -->
@@ -23,11 +23,13 @@
       <input type="password" id="apiKeyInput" placeholder="Gemini API Key 입력" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500">
       
       <textarea id="textInput" placeholder="메시지를 입력해보세요 (예: 오늘 정말 기분 좋다!)" rows="2" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-sky-500 resize-none"></textarea>
+      
+      <!-- 에러 출력창 -->
+      <div id="errorBox" class="hidden text-[11px] text-red-400 bg-red-950/50 border border-red-800/50 rounded-xl p-2.5 break-all"></div>
     </div>
 
     <!-- 감정 수치 HUD -->
     <div class="w-full bg-slate-900/80 border border-slate-800 rounded-2xl p-3 space-y-2" id="gaugeBox">
-      <!-- JavaScript로 수치 바 생성됨 -->
     </div>
   </div>
 
@@ -117,10 +119,23 @@
     }
     draw();
 
-    // AI API 호출 (디바운스)
+    // AI API 호출 (디바운스 600ms)
     let timer;
+    const errorBox = document.getElementById('errorBox');
+    
+    function showError(msg) {
+      errorBox.innerText = msg;
+      errorBox.classList.remove('hidden');
+    }
+    function hideError() {
+      errorBox.innerText = '';
+      errorBox.classList.add('hidden');
+    }
+
     document.getElementById('textInput').addEventListener('input', (evt) => {
       clearTimeout(timer);
+      hideError();
+
       const text = evt.target.value.trim();
       const apiKey = document.getElementById('apiKeyInput').value.trim();
 
@@ -131,32 +146,66 @@
 
       timer = setTimeout(async () => {
         if (!apiKey) {
-          alert("Gemini API Key를 먼저 입력해주세요!");
+          showError("❌ Gemini API Key를 상단 입력창에 붙여넣어 주세요.");
           return;
         }
+
         document.getElementById('loading').classList.remove('hidden');
 
         try {
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+          
+          const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{
-                parts: [{ text: `입력문장: "${text}". 상대방이 느낄 감정 수치를 JSON으로 반환하세요. 키: happy, sad, angry, surprised, fear, disgust, neutral (값 범위: 0.0~1.0). 다른 문자 없이 순수 JSON만 출력.` }]
+                parts: [{
+                  text: `다음 입력된 문장을 읽고 상대방이 느낄 감정을 7가지(happy, sad, angry, surprised, fear, disgust, neutral)의 확률 수치(0.0 ~ 1.0)로 분석하세요.
+                  반드시 아래 형태와 동일한 JSON 형식으로만 응답하세요:
+                  {"happy": 0.0, "sad": 0.0, "angry": 0.0, "surprised": 0.0, "fear": 0.0, "disgust": 0.0, "neutral": 1.0}
+                  
+                  입력문장: "${text}"`
+                }]
               }],
-              generationConfig: { responseMimeType: "application/json" }
+              generationConfig: {
+                responseMimeType: "application/json"
+              }
             })
           });
 
-          const data = await res.json();
-          const parsed = JSON.parse(data.candidates[0].content.parts[0].text);
-          targetEmotions = parsed;
+          if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error?.message || `서버 에러 (${response.status})`);
+          }
+
+          const data = await response.json();
+          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          
+          if (!rawText) {
+            throw new Error("AI 응답을 받아오지 못했습니다.");
+          }
+
+          const parsed = JSON.parse(rawText);
+          
+          // 정상적으로 파싱된 감정값 할당
+          targetEmotions = {
+            happy: parsed.happy || 0,
+            sad: parsed.sad || 0,
+            angry: parsed.angry || 0,
+            surprised: parsed.surprised || 0,
+            fear: parsed.fear || 0,
+            disgust: parsed.disgust || 0,
+            neutral: parsed.neutral || 0
+          };
+
         } catch (err) {
           console.error(err);
+          showError("오류 발생: " + err.message);
         } finally {
           document.getElementById('loading').classList.add('hidden');
         }
-      }, 500);
+      }, 600);
     });
   </script>
 </body>
