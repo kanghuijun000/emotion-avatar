@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Realtime 2D Emotion Avatar (Puter AI)</title>
+  <title>Stable Animated 2D Emotion Avatar</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Puter.js SDK (API 키 없이 AI를 직접 호출할 수 있게 해주는 라이브러리) -->
+  <!-- Puter.js SDK -->
   <script src="https://js.puter.com/v2/"></script>
   <style>
     body { touch-action: manipulation; }
@@ -16,13 +16,23 @@
   <div class="w-full max-w-xs flex flex-col items-center gap-4 my-auto">
     <!-- 2D 아바타 캔버스 -->
     <div class="relative">
-      <canvas id="faceCanvas" width="220" height="220" class="rounded-3xl bg-slate-900 border border-slate-800 shadow-lg"></canvas>
-      <div id="loading" class="hidden absolute -bottom-5 left-0 right-0 text-center text-[11px] text-sky-400 animate-pulse font-semibold">AI 감정 분석 중...</div>
+      <canvas id="faceCanvas" width="220" height="220" class="rounded-3xl bg-slate-900 border border-slate-800 shadow-xl"></canvas>
+      <div id="loading" class="hidden absolute -bottom-5 left-0 right-0 text-center text-[11px] text-sky-400 animate-pulse font-semibold">AI 표정 분석 및 답변 생성 중...</div>
     </div>
 
-    <!-- 텍스트 입력창 (API 키 입력란 완전히 삭제됨) -->
+    <!-- AI 대답 말풍선 -->
+    <div id="aiReplyBox" class="w-full bg-sky-950/40 border border-sky-800/50 rounded-2xl p-3.5 min-h-[70px] flex flex-col justify-center transition-all">
+      <div class="text-[10px] text-sky-400 font-semibold mb-1 flex items-center gap-1">
+        <span>🤖 AI 아바타의 대답</span>
+      </div>
+      <p id="aiReplyText" class="text-xs text-slate-200 leading-relaxed break-keep">
+        메시지를 입력하시면 감정을 정밀하게 조율하여 표정과 함께 대답해 드려요!
+      </p>
+    </div>
+
+    <!-- 텍스트 입력창 -->
     <div class="w-full space-y-2">
-      <textarea id="textInput" placeholder="메시지를 입력해보세요 (예: 시험 끝났다!, 오늘 휴대폰 변기에 빠뜨림...)" rows="3" class="w-full bg-slate-900 border border-slate-800 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none shadow-inner"></textarea>
+      <textarea id="textInput" placeholder="메시지를 입력해보세요 (예: 황당하면서도 약간 웃기네, 너무 슬프고 화가 난다!)" rows="3" class="w-full bg-slate-900 border border-slate-800 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none shadow-inner"></textarea>
       
       <!-- 에러 출력창 -->
       <div id="errorBox" class="hidden text-[11px] text-red-400 bg-red-950/50 border border-red-800/50 rounded-xl p-2.5 break-all"></div>
@@ -41,6 +51,10 @@
     let targetEmotions = { happy: 0, sad: 0, angry: 0, surprised: 0, fear: 0, disgust: 0, neutral: 1 };
     let currentEmotions = { ...targetEmotions };
 
+    // 파티클 관리
+    let particles = [];
+    let frameCount = 0;
+
     // UI 동적 생성
     function renderGauges() {
       const box = document.getElementById('gaugeBox');
@@ -58,9 +72,12 @@
     }
     renderGauges();
 
-    // 캔버스 그리기 루프
+    // 캔버스 정밀 렌더링 루프
     function draw() {
+      frameCount++;
       const lerp = (a, b) => a + (b - a) * 0.12;
+
+      // 감정 수치 보간
       for (let k in targetEmotions) {
         currentEmotions[k] = lerp(currentEmotions[k], targetEmotions[k]);
         const percent = Math.round(currentEmotions[k] * 100);
@@ -72,47 +89,168 @@
 
       const e = currentEmotions;
       const width = canvas.width, height = canvas.height;
-      const cx = width / 2, cy = height / 2;
+      let cx = width / 2;
+      let cy = height / 2;
+
+      // 가장 우세한 핵심 감정 선별 (Dominant Emotion)
+      let dominant = 'neutral';
+      let maxVal = 0;
+      for (let k in e) {
+        if (e[k] > maxVal) {
+          maxVal = e[k];
+          dominant = k;
+        }
+      }
+
+      // 0. 공포(Fear) 셰이킹 제한 적용
+      if (e.fear > 0.3) {
+        const shakeIntensity = Math.min(e.fear * 5, 4);
+        cx += (Math.random() - 0.5) * shakeIntensity;
+        cy += (Math.random() - 0.5) * shakeIntensity;
+      }
 
       ctx.clearRect(0, 0, width, height);
 
-      // 얼굴
+      // --- [1. 감정 파티클 생성 - 과부하 방지 안전장치 적용] ---
+      if (particles.length < 25) { // 최대 파티클 수 제한
+        if (e.happy > 0.4 && frameCount % 15 === 0) {
+          particles.push({ type: 'heart', x: cx + (Math.random() - 0.5) * 110, y: cy + 40, size: 10 + Math.random() * 6, vy: -1.2, alpha: 1 });
+        }
+        if (e.sad > 0.4 && frameCount % 8 === 0) {
+          particles.push({ type: 'rain', x: cx + (Math.random() - 0.5) * 130, y: cy - 65, vy: 4 + Math.random() * 2, length: 8, alpha: 0.8 });
+        }
+        if (e.angry > 0.4 && frameCount % 6 === 0) {
+          particles.push({ type: 'fire', x: cx + (Math.random() - 0.5) * 120, y: cy + 55, size: 6 + Math.random() * 6, vy: -2, vx: (Math.random() - 0.5), alpha: 1 });
+        }
+      }
+
+      // 파티클 업데이트 및 출력
+      for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        if (p.type === 'heart') {
+          p.y += p.vy; p.alpha -= 0.015;
+          ctx.fillStyle = `rgba(244, 114, 182, ${Math.max(0, p.alpha)})`;
+          ctx.font = `${p.size}px sans-serif`;
+          ctx.fillText('♥', p.x, p.y);
+        } else if (p.type === 'rain') {
+          p.y += p.vy; p.alpha -= 0.025;
+          ctx.strokeStyle = `rgba(56, 189, 248, ${Math.max(0, p.alpha)})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y + p.length); ctx.stroke();
+        } else if (p.type === 'fire') {
+          p.y += p.vy; p.x += p.vx; p.alpha -= 0.035;
+          ctx.fillStyle = `rgba(239, 68, 68, ${Math.max(0, p.alpha)})`;
+          ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1, p.size * p.alpha), 0, Math.PI * 2); ctx.fill();
+        }
+        if (p.alpha <= 0 || p.y < 0 || p.y > height) particles.splice(i, 1);
+      }
+
+      // --- [2. 아바타 이목구비 렌더링 (경계값 보정 적용)] ---
+
+      // 얼굴 베이스
       ctx.beginPath();
       ctx.arc(cx, cy, 75, 0, Math.PI * 2);
       ctx.fillStyle = '#facc15';
       ctx.fill();
 
+      // 질림 그림자 (Fear)
+      if (e.fear > 0.25) {
+        ctx.save();
+        ctx.beginPath(); ctx.arc(cx, cy, 75, 0, Math.PI * 2); ctx.clip();
+        ctx.fillStyle = `rgba(30, 58, 138, ${Math.min(0.6, e.fear * 0.6)})`;
+        ctx.fillRect(cx - 75, cy - 75, 150, 60);
+        ctx.restore();
+      }
+
+      // 볼터치 (Happy)
+      if (e.happy > 0.2) {
+        ctx.fillStyle = `rgba(244, 63, 94, ${Math.min(0.7, e.happy * 0.7)})`;
+        ctx.beginPath(); ctx.arc(cx - 42, cy + 10, 14, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 42, cy + 10, 14, 0, Math.PI * 2); ctx.fill();
+      }
+
       // 눈
-      const eyeSize = 7 + e.surprised * 9;
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath(); ctx.arc(cx - 28, cy - 14, eyeSize, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(cx + 28, cy - 14, eyeSize, 0, Math.PI * 2); ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#0f172a';
 
-      // 눈썹
-      ctx.lineWidth = 5; ctx.strokeStyle = '#0f172a'; ctx.lineCap = 'round';
-      const offsetY = (e.sad * 6) - (e.angry * 6) - (e.surprised * 10);
-      const tilt = (e.angry * 0.35) - (e.sad * 0.35);
+      const drawEye = (isLeft) => {
+        const eyeCx = isLeft ? cx - 28 : cx + 28;
+        if (e.happy > 0.65) {
+          // 우세하게 기쁠 때만 웃는 눈
+          ctx.beginPath();
+          ctx.arc(eyeCx, cy - 8, 10, Math.PI * 1.1, Math.PI * 1.9);
+          ctx.stroke();
+        } else {
+          // 크기 및 색상 제한 보정
+          const eyeR = Math.min(15, Math.max(3, 7 + (e.surprised * 7) - (e.disgust * 2)));
+          ctx.beginPath();
+          ctx.arc(eyeCx, cy - 14, eyeR, 0, Math.PI * 2);
+          ctx.fillStyle = (e.angry > 0.5) ? '#dc2626' : '#0f172a';
+          ctx.fill();
+        }
+      };
+      drawEye(true);
+      drawEye(false);
+
+      // 눈썹 (기울기 및 높이 한계 지정으로 깨짐 방지)
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#0f172a';
+
+      const rawEyOffY = (e.sad * 8) - (e.angry * 8) - (e.surprised * 10);
+      const eyOffY = Math.max(-14, Math.min(10, rawEyOffY)); // Y축 오프셋 -14px ~ +10px 제한
+
+      const rawTilt = (e.angry * 0.35) - (e.sad * 0.35);
+      const eyTilt = Math.max(-0.4, Math.min(0.4, rawTilt)); // 기울기 범위 제한
 
       ctx.beginPath();
-      ctx.moveTo(cx - 48, cy - 35 + offsetY - tilt * 15);
-      ctx.lineTo(cx - 10, cy - 35 + offsetY + tilt * 15);
+      ctx.moveTo(cx - 48, cy - 35 + eyOffY - eyTilt * 15);
+      ctx.lineTo(cx - 10, cy - 35 + eyOffY + eyTilt * 15);
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.moveTo(cx + 10, cy - 35 + offsetY + tilt * 15);
-      ctx.lineTo(cx + 48, cy - 35 + offsetY - tilt * 15);
+      ctx.moveTo(cx + 10, cy - 35 + eyOffY + eyTilt * 15);
+      ctx.lineTo(cx + 48, cy - 35 + eyOffY - eyTilt * 15);
       ctx.stroke();
 
-      // 입
+      // 입 모양 (복합 감정 가중치 종합 계산)
       ctx.beginPath();
-      if (e.surprised > 0.4) {
-        ctx.arc(cx, cy + 28, 8 + e.surprised * 12, 0, Math.PI * 2);
-        ctx.fillStyle = '#0f172a'; ctx.fill();
-      } else {
-        const curve = (e.happy * 30) - (e.sad * 30) - (e.angry * 15);
-        ctx.moveTo(cx - 32, cy + 28);
-        ctx.quadraticCurveTo(cx, cy + 28 + curve, cx + 32, cy + 28);
+      if (dominant === 'surprised' && e.surprised > 0.45) {
+        const mouthR = Math.min(20, 8 + e.surprised * 10);
+        ctx.arc(cx, cy + 28, mouthR, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+      } else if (dominant === 'fear' && e.fear > 0.45) {
+        ctx.moveTo(cx - 24, cy + 28);
+        ctx.quadraticCurveTo(cx - 12, cy + 22, cx, cy + 28);
+        ctx.quadraticCurveTo(cx + 12, cy + 34, cx + 24, cy + 28);
         ctx.stroke();
+      } else if (dominant === 'disgust' && e.disgust > 0.45) {
+        ctx.moveTo(cx - 24, cy + 24);
+        ctx.lineTo(cx + 24, cy + 32);
+        ctx.stroke();
+      } else {
+        // 커브 굴곡 범위 한계 설정 (-28 ~ +30)
+        const rawCurve = (e.happy * 30) - (e.sad * 28) - (e.angry * 16);
+        const mouthCurve = Math.max(-28, Math.min(30, rawCurve));
+        ctx.moveTo(cx - 28, cy + 26);
+        ctx.quadraticCurveTo(cx, cy + 26 + mouthCurve, cx + 28, cy + 26);
+        ctx.stroke();
+      }
+
+      // 상단 감정 아이콘 오브젝트 (Dominant 감정에 따라 하나만 깔끔하게 출력)
+      if (dominant === 'sad' && e.sad > 0.45) {
+        ctx.fillStyle = 'rgba(100, 116, 139, 0.8)';
+        ctx.beginPath();
+        ctx.arc(cx - 22, cy - 80, 16, 0, Math.PI * 2);
+        ctx.arc(cx, cy - 86, 22, 0, Math.PI * 2);
+        ctx.arc(cx + 22, cy - 80, 16, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (dominant === 'surprised' && e.surprised > 0.45) {
+        const bounce = Math.sin(frameCount * 0.2) * 3;
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.fillText('!', cx - 4, cy - 82 + bounce);
       }
 
       requestAnimationFrame(draw);
@@ -122,6 +260,7 @@
     // AI API 호출 (Puter.js 이용)
     let timer;
     const errorBox = document.getElementById('errorBox');
+    const aiReplyText = document.getElementById('aiReplyText');
     
     function showError(msg) {
       errorBox.innerText = msg;
@@ -140,6 +279,7 @@
 
       if (!text) {
         targetEmotions = { happy: 0, sad: 0, angry: 0, surprised: 0, fear: 0, disgust: 0, neutral: 1 };
+        aiReplyText.innerText = "메시지를 입력하시면 감정을 정밀하게 조율하여 표정과 함께 대답해 드려요!";
         return;
       }
 
@@ -147,42 +287,59 @@
         document.getElementById('loading').classList.remove('hidden');
 
         try {
-          const prompt = `다음 문장을 분석하여 감정 수치(happy, sad, angry, surprised, fear, disgust, neutral)를 0.0 ~ 1.0 사이의 값으로 구하세요.
-          문맥과 뉘앙스를 고려하세요.
-          응답은 무조건 오직 아래 JSON 형태 하나만 출력하세요. 다른 말은 절대로 덧붙이지 마세요:
-          {"happy": 0.0, "sad": 0.0, "angry": 0.0, "surprised": 0.0, "fear": 0.0, "disgust": 0.0, "neutral": 1.0}
-          
-          문장: "${text}"`;
+          const prompt = `사용자의 문장에 대해 2가지 작업을 수행하세요:
+1. 문장의 감정 수치(happy, sad, angry, surprised, fear, disgust, neutral)를 0.0~1.0 사이 값으로 계산하세요. (복합 감정인 경우 복수 비율 반영 가능)
+2. 사용자의 문장에 어울리는 따뜻하고 친근한 한국어 답변(reply)을 1~2문장으로 작성하세요.
 
-          // Puter.js로 키 없이 AI 모델 직접 호출
+반드시 아래 JSON 형식으로만 응답하세요:
+{
+  "emotions": {
+    "happy": 0.0,
+    "sad": 0.0,
+    "angry": 0.0,
+    "surprised": 0.0,
+    "fear": 0.0,
+    "disgust": 0.0,
+    "neutral": 1.0
+  },
+  "reply": "사용자에게 할 AI의 대답"
+}
+
+사용자 문장: "${text}"`;
+
           const response = await puter.ai.chat(prompt);
           const responseText = response.toString().trim();
 
-          // JSON 파싱 (코드 블록 기호 제거 처리)
           const jsonMatch = responseText.match(/\{[\s\S]*\}/);
           if (!jsonMatch) {
-            throw new Error("AI 결과 데이터를 읽을 수 없습니다.");
+            throw new Error("AI 응답 형식을 처리할 수 없습니다.");
           }
 
           const parsed = JSON.parse(jsonMatch[0]);
           
-          targetEmotions = {
-            happy: Number(parsed.happy) || 0,
-            sad: Number(parsed.sad) || 0,
-            angry: Number(parsed.angry) || 0,
-            surprised: Number(parsed.surprised) || 0,
-            fear: Number(parsed.fear) || 0,
-            disgust: Number(parsed.disgust) || 0,
-            neutral: Number(parsed.neutral) || 0
-          };
+          if (parsed.emotions) {
+            targetEmotions = {
+              happy: Number(parsed.emotions.happy) || 0,
+              sad: Number(parsed.emotions.sad) || 0,
+              angry: Number(parsed.emotions.angry) || 0,
+              surprised: Number(parsed.emotions.surprised) || 0,
+              fear: Number(parsed.emotions.fear) || 0,
+              disgust: Number(parsed.emotions.disgust) || 0,
+              neutral: Number(parsed.emotions.neutral) || 0
+            };
+          }
+
+          if (parsed.reply) {
+            aiReplyText.innerText = parsed.reply;
+          }
 
         } catch (err) {
           console.error(err);
-          showError("AI 분석 오류: " + err.message);
+          showError("AI 처리 오류: " + err.message);
         } finally {
           document.getElementById('loading').classList.add('hidden');
         }
-      }, 600);
+      }, 700);
     });
   </script>
 </body>
