@@ -10,7 +10,7 @@
   <style>
     body {
       touch-action: manipulation;
-      transition: background 1.0s ease-in-out; /* 배경 그라데이션 전환 부드럽게 */
+      transition: background 1.0s ease-in-out;
     }
   </style>
 </head>
@@ -20,22 +20,28 @@
     <!-- 2D 아바타 캔버스 -->
     <div class="relative">
       <canvas id="faceCanvas" width="220" height="220" class="rounded-3xl bg-slate-900/90 border border-white/10 shadow-2xl backdrop-blur-sm transition-all duration-500"></canvas>
-      <div id="loading" class="hidden absolute -bottom-5 left-0 right-0 text-center text-[11px] text-sky-400 animate-pulse font-semibold">AI가 상황을 파악하며 생각 중...</div>
+      <div id="loading" class="hidden absolute -bottom-5 left-0 right-0 text-center text-[11px] text-sky-400 animate-pulse font-semibold">AI가 이전 대화를 기억하며 생각 중...</div>
     </div>
 
     <!-- AI 대답 말풍선 -->
-    <div id="aiReplyBox" class="w-full bg-slate-900/80 border border-white/10 rounded-2xl p-3.5 min-h-[70px] flex flex-col justify-center transition-all duration-500 shadow-lg">
+    <div id="aiReplyBox" class="w-full bg-slate-900/80 border border-white/10 rounded-2xl p-3.5 min-h-[70px] flex flex-col justify-center transition-all duration-500 shadow-lg relative">
       <div class="text-[10px] text-sky-400 font-semibold mb-1 flex items-center gap-1">
         <span>🤖 AI 아바타의 대답</span>
       </div>
-      <p id="aiReplyText" class="text-xs text-slate-200 leading-relaxed break-keep">
+      <p id="aiReplyText" class="text-xs text-slate-200 leading-relaxed break-keep pr-8">
         메시지를 입력해 보세요.
       </p>
+      <!-- 메모리 및 입력창 삭제 버튼 -->
+      <button id="deleteMemoryBtn" class="absolute bottom-2 right-2 p-1.5 rounded-full bg-slate-800/80 hover:bg-red-950/80 text-slate-400 hover:text-red-400 transition-colors shadow-inner" title="대화 및 입력 내용 초기화">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+        </svg>
+      </button>
     </div>
 
     <!-- 텍스트 입력창 -->
     <div class="w-full space-y-2">
-      <textarea id="textInput" placeholder="메시지를 입력해보세요 (예: 오늘 기분 최고!, 약간 기분 상하네, 부장님 때문에 폭발할 것 같아!!!)" rows="3" class="w-full bg-slate-900/80 border border-white/10 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none shadow-inner transition-colors duration-300"></textarea>
+      <textarea id="textInput" placeholder="메시지를 입력해보세요..." rows="3" class="w-full bg-slate-900/80 border border-white/10 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none shadow-inner transition-colors duration-300"></textarea>
       
       <!-- 에러 출력창 -->
       <div id="errorBox" class="hidden text-[11px] text-red-400 bg-red-950/50 border border-red-800/50 rounded-xl p-2.5 break-all"></div>
@@ -50,38 +56,43 @@
     const canvas = document.getElementById('faceCanvas');
     const ctx = canvas.getContext('2d');
     const bgBody = document.getElementById('bgBody');
+    const deleteMemoryBtn = document.getElementById('deleteMemoryBtn');
+    const aiReplyText = document.getElementById('aiReplyText');
+    const textInput = document.getElementById('textInput');
     
     // 기본 감정 데이터
-    let targetEmotions = { happy: 0, sad: 0, angry: 0, surprised: 0, fear: 0, disgust: 0, neutral: 1 };
+    const defaultEmotions = { happy: 0, sad: 0, angry: 0, surprised: 0, fear: 0, disgust: 0, neutral: 1 };
+    let targetEmotions = { ...defaultEmotions };
     let currentEmotions = { ...targetEmotions };
 
-    // 감정별 피부 색상 (R, G, B)
+    // 대화 기록 저장 배열 (Memory)
+    let chatHistory = [];
+
+    // 감정별 피부 색상
     const emotionSkinColors = {
-      happy: { r: 255, g: 218, b: 120 },  // 밝고 생기있는 피치 옐로우
-      sad: { r: 180, g: 200, b: 220 },    // 창백하고 파르스름한 블루 그레이
-      angry: { r: 245, g: 90, b: 80 },    // 새빨갛게 상기된 얼굴
-      surprised: { r: 255, g: 230, b: 140 }, // 빛나는 골드 옐로우
-      fear: { r: 160, g: 170, b: 200 },   // 새파랗게 질린 얼굴
-      disgust: { r: 190, g: 205, b: 130 }, // 퀴퀴한 노란빛 녹색
-      neutral: { r: 250, g: 204, b: 21 }   // 기본 옐로우
+      happy: { r: 255, g: 218, b: 120 },
+      sad: { r: 180, g: 200, b: 220 },
+      angry: { r: 245, g: 90, b: 80 },
+      surprised: { r: 255, g: 230, b: 140 },
+      fear: { r: 160, g: 170, b: 200 },
+      disgust: { r: 190, g: 205, b: 130 },
+      neutral: { r: 250, g: 204, b: 21 }
     };
 
-    // [강화] 감정별 배경 색상 (R, G, B) - 그라데이션용 두 색상
+    // 감정별 배경 색상
     const emotionBgColors = {
-      happy: { c1: { r: 55, g: 25, b: 20 }, c2: { r: 74, g: 44, b: 26 } },     // 따뜻한 오렌지 핑크 톤
-      sad: { c1: { r: 10, g: 24, b: 42 }, c2: { r: 5, g: 16, b: 32 } },       // 깊은 딥블루 톤
-      angry: { c1: { r: 48, g: 10, b: 12 }, c2: { r: 30, g: 5, b: 5 } },     // 다크 레드 톤
-      surprised: { c1: { r: 40, g: 18, b: 48 }, c2: { r: 20, g: 10, b: 30 } }, // 몽환적인 퍼플 톤
-      fear: { c1: { r: 8, g: 32, b: 28 }, c2: { r: 3, g: 16, b: 16 } },       // 오싹한 다크 지안/그린 톤
-      disgust: { c1: { r: 24, g: 28, b: 10 }, c2: { r: 16, g: 20, b: 5 } },   // 탁한 올리브 톤
-      neutral: { c1: { r: 2, g: 6, b: 23 }, c2: { r: 1, g: 3, b: 15 } }      // 기본 다크 슬레이트 톤
+      happy: { c1: { r: 55, g: 25, b: 20 }, c2: { r: 74, g: 44, b: 26 } },
+      sad: { c1: { r: 10, g: 24, b: 42 }, c2: { r: 5, g: 16, b: 32 } },
+      angry: { c1: { r: 48, g: 10, b: 12 }, c2: { r: 30, g: 5, b: 5 } },
+      surprised: { c1: { r: 40, g: 18, b: 48 }, c2: { r: 20, g: 10, b: 30 } },
+      fear: { c1: { r: 8, g: 32, b: 28 }, c2: { r: 3, g: 16, b: 16 } },
+      disgust: { c1: { r: 24, g: 28, b: 10 }, c2: { r: 16, g: 20, b: 5 } },
+      neutral: { c1: { r: 2, g: 6, b: 23 }, c2: { r: 1, g: 3, b: 15 } }
     };
 
-    // 파티클 관리
     let particles = [];
     let frameCount = 0;
 
-    // UI 동적 생성
     function renderGauges() {
       const box = document.getElementById('gaugeBox');
       box.innerHTML = Object.keys(targetEmotions).map(key => `
@@ -98,12 +109,10 @@
     }
     renderGauges();
 
-    // 캔버스 정밀 렌더링 루프
     function draw() {
       frameCount++;
       const lerp = (a, b) => a + (b - a) * 0.12;
 
-      // 감정 수치 보간
       for (let k in targetEmotions) {
         currentEmotions[k] = lerp(currentEmotions[k], targetEmotions[k]);
         const percent = Math.round(currentEmotions[k] * 100);
@@ -118,7 +127,6 @@
       let cx = width / 2;
       let cy = height / 2;
 
-      // --- [강화] 배경색 동적 그라데이션 계산 및 전환 ---
       let bgC1_R = 0, bgC1_G = 0, bgC1_B = 0;
       let bgC2_R = 0, bgC2_G = 0, bgC2_B = 0;
       for (let k in e) {
@@ -131,7 +139,6 @@
       }
       bgBody.style.background = `linear-gradient(to bottom, rgb(${Math.round(bgC1_R)}, ${Math.round(bgC1_G)}, ${Math.round(bgC1_B)}), rgb(${Math.round(bgC2_R)}, ${Math.round(bgC2_G)}, ${Math.round(bgC2_B)}))`;
 
-      // --- [얼굴 피부색 동적 계산] ---
       let skinR = 0, skinG = 0, skinB = 0;
       for (let k in e) {
         skinR += emotionSkinColors[k].r * e[k];
@@ -139,7 +146,6 @@
         skinB += emotionSkinColors[k].b * e[k];
       }
 
-      // 우세 감정 선별
       let dominant = 'neutral';
       let maxVal = 0;
       for (let k in e) {
@@ -149,7 +155,6 @@
         }
       }
 
-      // 셰이킹 (Fear 및 강한 Angry)
       let shakeIntensity = 0;
       if (e.fear > 0.25) shakeIntensity = Math.min(e.fear * 6, 5);
       if (e.angry > 0.65) shakeIntensity = Math.min((e.angry - 0.5) * 5, 4);
@@ -161,7 +166,6 @@
 
       ctx.clearRect(0, 0, width, height);
 
-      // --- [1. 파티클 생성 및 그래픽 연출] ---
       const maxParticleCap = 35;
       if (particles.length < maxParticleCap) {
         if (e.happy > 0.25) {
@@ -184,7 +188,6 @@
         }
       }
 
-      // 파티클 그리기
       for (let i = particles.length - 1; i >= 0; i--) {
         let p = particles[i];
         if (p.type === 'heart') {
@@ -205,13 +208,11 @@
         if (p.alpha <= 0 || p.y < 0 || p.y > height) particles.splice(i, 1);
       }
 
-      // --- [2. 아바타 얼굴 렌더링] ---
       ctx.beginPath();
       ctx.arc(cx, cy, 75, 0, Math.PI * 2);
       ctx.fillStyle = `rgb(${Math.round(skinR)}, ${Math.round(skinG)}, ${Math.round(skinB)})`;
       ctx.fill();
 
-      // Fear 그림자
       if (e.fear > 0.2) {
         ctx.save();
         ctx.beginPath(); ctx.arc(cx, cy, 75, 0, Math.PI * 2); ctx.clip();
@@ -220,7 +221,6 @@
         ctx.restore();
       }
 
-      // Happy 볼터치
       if (e.happy > 0.15) {
         const blushR = 10 + e.happy * 8;
         ctx.fillStyle = `rgba(244, 63, 94, ${Math.min(0.85, e.happy * 0.85)})`;
@@ -228,7 +228,6 @@
         ctx.beginPath(); ctx.arc(cx + 42, cy + 10, blushR, 0, Math.PI * 2); ctx.fill();
       }
 
-      // 눈
       ctx.lineWidth = 4;
       ctx.strokeStyle = '#0f172a';
 
@@ -249,7 +248,6 @@
       drawEye(true);
       drawEye(false);
 
-      // 눈썹
       ctx.lineWidth = 4 + (e.angry * 3);
       ctx.lineCap = 'round';
       ctx.strokeStyle = '#0f172a';
@@ -269,7 +267,6 @@
       ctx.lineTo(cx + 48, cy - 35 + eyOffY - eyTilt * 18);
       ctx.stroke();
 
-      // 입 모양
       ctx.beginPath();
       if (dominant === 'surprised' && e.surprised > 0.35) {
         const mouthR = Math.min(24, 6 + e.surprised * 18);
@@ -295,7 +292,6 @@
         ctx.stroke();
       }
 
-      // 상단 이펙트
       if (dominant === 'sad' && e.sad > 0.35) {
         ctx.fillStyle = `rgba(100, 116, 139, ${Math.min(0.9, e.sad * 0.95)})`;
         ctx.beginPath();
@@ -314,10 +310,8 @@
     }
     draw();
 
-    // AI API 호출
     let timer;
     const errorBox = document.getElementById('errorBox');
-    const aiReplyText = document.getElementById('aiReplyText');
     
     function showError(msg) {
       errorBox.innerText = msg;
@@ -328,49 +322,41 @@
       errorBox.classList.add('hidden');
     }
 
-    document.getElementById('textInput').addEventListener('input', (evt) => {
+    // 메모리 및 입력창 내용 삭제 이벤트
+    deleteMemoryBtn.addEventListener('click', () => {
+      chatHistory = [];
+      textInput.value = ""; 
+      aiReplyText.innerText = "메시지를 입력해 보세요.";
+      targetEmotions = { ...defaultEmotions };
+    });
+
+    textInput.addEventListener('input', (evt) => {
       clearTimeout(timer);
       hideError();
 
       const text = evt.target.value.trim();
 
       if (!text) {
-        targetEmotions = { happy: 0, sad: 0, angry: 0, surprised: 0, fear: 0, disgust: 0, neutral: 1 };
-        aiReplyText.innerText = "메시지를 입력해 보세요.";
+        aiReplyText.innerText = chatHistory.length > 0 ? aiReplyText.innerText : "메시지를 입력해 보세요.";
         return;
       }
 
       timer = setTimeout(async () => {
         document.getElementById('loading').classList.remove('hidden');
 
+        chatHistory.push({ role: 'user', content: text });
+
         try {
-          // [기획 전체 반영] 프롬프트 고도화
-          const prompt = `당신은 사용자와 1:1 대화를 나누는 인격화된 AI 아바타 캐릭터입니다.
+          // 자연스러운 감정 판단을 위해 가벼워진 프롬프트
+          const prompt = `당신은 사용자와 대화하는 AI 아바타입니다.
 
 사용자의 입력: "${text}"
 
-[대화 및 상황 판단 지침 - 가장 중요]
-1. **뚱딴지같은 상황("그만 때려" 등) 대응**:
-   - 사용자가 "그만 때려", "너 왜 날 깨물어"처럼 현실적으로 불가능한 물리적 행위를 언급하면:
-     ➔ AI는 자신이 물리적 신체가 없는 '화면 속 AI'임을 생각하고 **어안이 벙벙하고 매우 당황스러운 반응(surprised)**을 보여야 합니다.
-     ➔ 자신이 때리고 있었다는 듯 순순히 맞장구치지 마세요.
-     ➔ 예시 답변: *"어...? 내가 널 어떻게 때려?! 갑자기 무슨 소리야?!"*, *"이쿠쿠, 내가 화면 밖으로 나가서 때리기라도 했다는 거야?! 억울하고 황당하네!"*
-2. **극도의 분노(\`angry\`) 처리**:
-   - 당신이 화가 났을 때 착한 AI처럼 "무슨 일 있어?", "왜 그래?", "괜찮아?" 하고 **사용자의 사정을 묻거나 걱정해 주는 반응을 완전히 차단**하세요.
-   - 오직 **자신이 받은 자극과 분노, 불쾌함에만 집중**하여 식직설적으로 표출하세요.
-   - 예시 답변: *"야, 적당히 좀 해! 진짜 선 넘네?"*, *"말 걸지 마. 너랑 얘기하고 싶지도 않아."*
-3. **일상적/유동적 질문 대응**:
-   - "왜 내 말 안 듣고 있어?", "누구 알아?" 등 감정 유발 말이 아니어도 문맥을 파악하여 **\`neutral\` 상태에서 자연스러운 친구 말투로 대답**하세요. 기계적인 정보 나열 금지.
-4. **말투 스타일**:
-   - 실제 친구끼리 대화하듯 입체적인 한국어 반말 구어체를 사용하세요.
-
-[1단계: 감정 분석]
-위 지침에 따라 AI 본인이 느낄 정밀 감정 수치(happy, sad, angry, surprised, fear, disgust, neutral)를 0.0 ~ 1.0 범위로 결정하세요. (합계가 1.0이 되도록)
-* 뚱딴지같은 질문은 **\`surprised\`** 수치를 극대화하세요 (0.6 이상).
-* 화나는 질문은 사용자를 걱정하지 말고 **\`angry\`** 수치만 극대화하세요 (0.6 이상).
-
-[2단계: 대화 답변 작성]
-상황과 지침에 완전히 몰입한 1~2문장의 생생한 대답을 작성하세요.
+[대화 및 감정 판단 기준]
+1. 일반적인 인사나 평범한 대화에서는 과도하게 놀라지 말고 neutral(평온)을 높게(0.6~0.9) 설정하세요.
+2. 각 상황에 어울릴 때만 적절한 감정(happy, sad, angry, surprised, fear, disgust)을 반영하세요.
+3. 정말 당황스럽거나 놀라운 내용일 때만 surprised를 높게 부여하세요.
+4. 자연스러운 친구 말투(반말)로 1~2문장의 답변을 작성하세요.
 
 응답은 오직 아래 JSON 포맷으로만 반환하세요:
 {
@@ -383,10 +369,10 @@
     "disgust": 0.0,
     "neutral": 1.0
   },
-  "reply": "문맥과 지침에 완벽히 부합하는 생생한 답변"
+  "reply": "자연스러운 답변"
 }`;
 
-          const response = await puter.ai.chat(prompt);
+          const response = await puter.ai.chat(prompt, chatHistory);
           const responseText = response.toString().trim();
 
           const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -426,6 +412,7 @@
 
           if (parsed.reply) {
             aiReplyText.innerText = parsed.reply;
+            chatHistory.push({ role: 'assistant', content: parsed.reply });
           }
 
         } catch (err) {
