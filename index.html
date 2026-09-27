@@ -31,17 +31,36 @@
       <p id="aiReplyText" class="text-xs text-slate-200 leading-relaxed break-keep pr-8">
         메시지를 입력해 보세요.
       </p>
-      <!-- 메모리 및 입력창 삭제 버튼 -->
-      <button id="deleteMemoryBtn" class="absolute bottom-2 right-2 p-1.5 rounded-full bg-slate-800/80 hover:bg-red-950/80 text-slate-400 hover:text-red-400 transition-colors shadow-inner" title="대화 및 입력 내용 초기화">
+      <!-- 메모리 및 대화 전체 초기화 버튼 -->
+      <button id="deleteMemoryBtn" class="absolute bottom-2 right-2 p-1.5 rounded-full bg-slate-800/80 hover:bg-red-950/80 text-slate-400 hover:text-red-400 transition-colors shadow-inner" title="대화 기록 전체 초기화">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
           <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
         </svg>
       </button>
     </div>
 
-    <!-- 텍스트 입력창 -->
+    <!-- 텍스트 입력창 및 전송/초기화 버튼 영역 -->
     <div class="w-full space-y-2">
-      <textarea id="textInput" placeholder="메시지를 입력해보세요..." rows="3" class="w-full bg-slate-900/80 border border-white/10 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none shadow-inner transition-colors duration-300"></textarea>
+      <div class="relative w-full">
+        <textarea id="textInput" placeholder="메시지를 입력해보세요..." rows="3" class="w-full bg-slate-900/80 border border-white/10 rounded-2xl p-3 pr-20 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none shadow-inner transition-colors duration-300"></textarea>
+        
+        <!-- 입력창 내부 오른쪽 하단 버튼 그룹 (X버튼 및 전송버튼) -->
+        <div class="absolute bottom-3 right-3 flex items-center gap-1.5">
+          <!-- 입력창 내용 지우기 작은 X 버튼 -->
+          <button id="clearInputBtn" class="p-1 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors shadow" title="입력 내용 지우기">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-3.5 h-3.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          
+          <!-- AI 전송 버튼 -->
+          <button id="sendBtn" class="p-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition-colors shadow" title="AI에게 전송">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3.5 h-3.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+            </svg>
+          </button>
+        </div>
+      </div>
       
       <!-- 에러 출력창 -->
       <div id="errorBox" class="hidden text-[11px] text-red-400 bg-red-950/50 border border-red-800/50 rounded-xl p-2.5 break-all"></div>
@@ -57,6 +76,8 @@
     const ctx = canvas.getContext('2d');
     const bgBody = document.getElementById('bgBody');
     const deleteMemoryBtn = document.getElementById('deleteMemoryBtn');
+    const clearInputBtn = document.getElementById('clearInputBtn');
+    const sendBtn = document.getElementById('sendBtn');
     const aiReplyText = document.getElementById('aiReplyText');
     const textInput = document.getElementById('textInput');
     
@@ -310,7 +331,6 @@
     }
     draw();
 
-    let timer;
     const errorBox = document.getElementById('errorBox');
     
     function showError(msg) {
@@ -322,47 +342,48 @@
       errorBox.classList.add('hidden');
     }
 
-    // 메모리 및 입력창 내용 삭제 이벤트
+    // 대화 기록 전체 초기화 버튼 (말풍선 우측 하단)
     deleteMemoryBtn.addEventListener('click', () => {
       chatHistory = [];
-      textInput.value = ""; 
       aiReplyText.innerText = "메시지를 입력해 보세요.";
       targetEmotions = { ...defaultEmotions };
     });
 
-    textInput.addEventListener('input', (evt) => {
-      clearTimeout(timer);
+    // 입력창 내용만 지우는 작은 X 버튼
+    clearInputBtn.addEventListener('click', () => {
+      textInput.value = "";
+      textInput.focus();
       hideError();
+    });
 
-      const text = evt.target.value.trim();
+    // AI에게 전송하는 함수
+    async function sendMessage() {
+      const text = textInput.value.trim();
+      if (!text) return;
 
-      if (!text) {
-        aiReplyText.innerText = chatHistory.length > 0 ? aiReplyText.innerText : "메시지를 입력해 보세요.";
-        return;
-      }
+      hideError();
+      document.getElementById('loading').classList.remove('hidden');
+      chatHistory.push({ role: 'user', content: text });
+      textInput.value = ""; // 전송 시 입력창 비우기
 
-      timer = setTimeout(async () => {
-        document.getElementById('loading').classList.remove('hidden');
+      try {
+        let historyContext = "";
+        if (chatHistory.length > 1) {
+          historyContext = "\n\n[이전 대화 기록]\n" + 
+            chatHistory.slice(0, -1).map(h => `${h.role === 'user' ? '사용자' : 'AI'}: ${h.content}`).join("\n");
+        }
 
-        chatHistory.push({ role: 'user', content: text });
-
-        try {
-          let historyContext = "";
-          if (chatHistory.length > 1) {
-            historyContext = "\n\n[이전 대화 기록]\n" + 
-              chatHistory.slice(0, -1).map(h => `${h.role === 'user' ? '사용자' : 'AI'}: ${h.content}`).join("\n");
-          }
-
-          const prompt = `당신은 사용자와 대화하는 AI 아바타입니다.
+        const prompt = `당신은 사용자와 대화하는 AI 아바타입니다.
 ${historyContext}
 
 사용자의 현재 입력: "${text}"
 
-[대화 및 감정 판단 기준]
-1. 일반적인 인사나 평범한 대화에서는 과도하게 놀라지 말고 neutral(평온)을 높게(0.6~0.9) 설정하세요.
-2. 각 상황에 어울릴 때만 적절한 감정(happy, sad, angry, surprised, fear, disgust)을 반영하세요.
-3. 이전 대화 맥락이 있다면 이를 기억하고 연결되는 자연스러운 답변을 하세요.
-4. 자연스러운 친구 말투(반말)로 1~2문장의 답변을 작성하세요.
+[중요 감정 판단 기준 및 규칙]
+1. 사용자가 심한 욕설, 부모 모욕, 패륜적 발언, 지속적인 인신공격을 할 경우:
+   - **반드시 angry(분노) 수치를 매우 높게(최소 0.7 ~ 1.0) 설정하세요.** 
+   - 이전 대화에서 욕설이나 모욕이 누적되어 있다면 분노 수치를 더 가중시켜 누적해서 반영하세요.
+2. 일반적인 평범한 대화나 인사에서는 neutral(평온)을 높게 설정하세요.
+3. 사용자의 모욕이나 공격에는 참지 않고 강하게 불쾌감을 드러내며 날카롭거나 분노 어린 반말(1~2문장)로 답변하세요.
 
 응답은 오직 아래 JSON 포맷으로만 반환하세요:
 {
@@ -378,56 +399,66 @@ ${historyContext}
   "reply": "자연스러운 답변"
 }`;
 
-          const response = await puter.ai.chat(prompt);
-          const responseText = response.toString().trim();
+        const response = await puter.ai.chat(prompt);
+        const responseText = response.toString().trim();
 
-          const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) {
-            throw new Error("AI 응답 형식을 처리할 수 없습니다.");
-          }
-
-          const parsed = JSON.parse(jsonMatch[0]);
-          
-          if (parsed.emotions) {
-            let rawEmotions = {
-              happy: Math.max(0, Number(parsed.emotions.happy) || 0),
-              sad: Math.max(0, Number(parsed.emotions.sad) || 0),
-              angry: Math.max(0, Number(parsed.emotions.angry) || 0),
-              surprised: Math.max(0, Number(parsed.emotions.surprised) || 0),
-              fear: Math.max(0, Number(parsed.emotions.fear) || 0),
-              disgust: Math.max(0, Number(parsed.emotions.disgust) || 0),
-              neutral: Math.max(0, Number(parsed.emotions.neutral) || 0)
-            };
-
-            const totalSum = Object.values(rawEmotions).reduce((acc, val) => acc + val, 0);
-
-            if (totalSum > 0) {
-              targetEmotions = {
-                happy: rawEmotions.happy / totalSum,
-                sad: rawEmotions.sad / totalSum,
-                angry: rawEmotions.angry / totalSum,
-                surprised: rawEmotions.surprised / totalSum,
-                fear: rawEmotions.fear / totalSum,
-                disgust: rawEmotions.disgust / totalSum,
-                neutral: rawEmotions.neutral / totalSum
-              };
-            } else {
-              targetEmotions = { happy: 0, sad: 0, angry: 0, surprised: 0, fear: 0, disgust: 0, neutral: 1 };
-            }
-          }
-
-          if (parsed.reply) {
-            aiReplyText.innerText = parsed.reply;
-            chatHistory.push({ role: 'assistant', content: parsed.reply });
-          }
-
-        } catch (err) {
-          console.error(err);
-          showError("AI 처리 오류: " + err.message);
-        } finally {
-          document.getElementById('loading').classList.add('hidden');
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          throw new Error("AI 응답 형식을 처리할 수 없습니다.");
         }
-      }, 700);
+
+        const parsed = JSON.parse(jsonMatch[0]);
+        
+        if (parsed.emotions) {
+          let rawEmotions = {
+            happy: Math.max(0, Number(parsed.emotions.happy) || 0),
+            sad: Math.max(0, Number(parsed.emotions.sad) || 0),
+            angry: Math.max(0, Number(parsed.emotions.angry) || 0),
+            surprised: Math.max(0, Number(parsed.emotions.surprised) || 0),
+            fear: Math.max(0, Number(parsed.emotions.fear) || 0),
+            disgust: Math.max(0, Number(parsed.emotions.disgust) || 0),
+            neutral: Math.max(0, Number(parsed.emotions.neutral) || 0)
+          };
+
+          const totalSum = Object.values(rawEmotions).reduce((acc, val) => acc + val, 0);
+
+          if (totalSum > 0) {
+            targetEmotions = {
+              happy: rawEmotions.happy / totalSum,
+              sad: rawEmotions.sad / totalSum,
+              angry: rawEmotions.angry / totalSum,
+              surprised: rawEmotions.surprised / totalSum,
+              fear: rawEmotions.fear / totalSum,
+              disgust: rawEmotions.disgust / totalSum,
+              neutral: rawEmotions.neutral / totalSum
+            };
+          } else {
+            targetEmotions = { happy: 0, sad: 0, angry: 0, surprised: 0, fear: 0, disgust: 0, neutral: 1 };
+          }
+        }
+
+        if (parsed.reply) {
+          aiReplyText.innerText = parsed.reply;
+          chatHistory.push({ role: 'assistant', content: parsed.reply });
+        }
+
+      } catch (err) {
+        console.error(err);
+        showError("AI 처리 오류: " + err.message);
+      } finally {
+        document.getElementById('loading').classList.add('hidden');
+      }
+    }
+
+    // 전송 버튼 클릭 이벤트
+    sendBtn.addEventListener('click', sendMessage);
+
+    // 엔터키(Shift+Enter 제외)로도 전송 가능하도록 설정
+    textInput.addEventListener('keydown', (evt) => {
+      if (evt.key === 'Enter' && !evt.shiftKey) {
+        evt.preventDefault();
+        sendMessage();
+      }
     });
   </script>
 </body>
