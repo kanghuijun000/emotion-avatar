@@ -153,7 +153,8 @@
         document.getElementById('loading').classList.remove('hidden');
 
         try {
-          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+          // gemini-2.5-flash 모델로 변경 적용
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
           
           const response = await fetch(endpoint, {
             method: 'POST',
@@ -188,7 +189,6 @@
 
           const parsed = JSON.parse(rawText);
           
-          // 정상적으로 파싱된 감정값 할당
           targetEmotions = {
             happy: parsed.happy || 0,
             sad: parsed.sad || 0,
