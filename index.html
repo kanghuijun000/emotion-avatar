@@ -1,771 +1,2279 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Natural Emotion Intensity Avatar</title>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://js.puter.com/v2/"></script>
+<title>Natural Emotion Intensity Avatar</title>
 
-  <style>
-    * {
-      box-sizing: border-box;
+<script src="https://js.puter.com/v2/"></script>
+
+<style>
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+:root {
+    --bg: #090d18;
+    --panel: #131b2b;
+    --panel2: #1a2539;
+    --text: #edf3ff;
+    --muted: #94a3b8;
+    --accent: #7c9cff;
+    --border: rgba(255,255,255,.09);
+}
+
+body {
+    margin: 0;
+    background:
+        radial-gradient(circle at top, #1c2946 0%, #090d18 55%);
+    color: var(--text);
+    font-family: Arial, "Malgun Gothic", sans-serif;
+    min-height: 100vh;
+}
+
+button, input, textarea {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+.app {
+    width: 100%;
+    max-width: 1100px;
+    margin: auto;
+    padding: 18px;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.logo {
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -.5px;
+}
+
+.logo span {
+    color: var(--accent);
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.small-btn {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 13px;
+    border-radius: 10px;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
+    gap: 18px;
+}
+
+.panel {
+    background: rgba(19,27,43,.92);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 15px 50px rgba(0,0,0,.18);
+}
+
+.panel-title {
+    font-size: 15px;
+    font-weight: 700;
+    padding: 17px 18px;
+    border-bottom: 1px solid var(--border);
+}
+
+.avatar-area {
+    padding: 20px;
+}
+
+.avatar-stage {
+    position: relative;
+    min-height: 310px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+        radial-gradient(circle at 50% 45%, #273b62 0%, #131c30 55%, #101827 100%);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+#avatarCanvas {
+    width: 100%;
+    max-width: 380px;
+    height: 310px;
+    display: block;
+}
+
+.state-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    padding: 7px 11px;
+    background: rgba(0,0,0,.3);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 30px;
+    font-size: 12px;
+    color: #dce7ff;
+}
+
+.emotion-main {
+    margin-top: 18px;
+    padding: 15px;
+    border-radius: 14px;
+    background: var(--panel2);
+}
+
+.emotion-main-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.emotion-main-name {
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.emotion-main-value {
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.progress {
+    height: 9px;
+    background: #0b1220;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: inherit;
+    transition: width .35s ease, background .35s ease;
+}
+
+.emotion-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.emotion-card {
+    background: var(--panel2);
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+}
+
+.emotion-card-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 13px;
+    margin-bottom: 9px;
+}
+
+.emotion-card-value {
+    color: #dbe5ff;
+    font-weight: 700;
+}
+
+.emotion-card .progress {
+    height: 6px;
+}
+
+.emotion-note {
+    margin-top: 14px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.chat-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 650px;
+}
+
+.chat-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #55d69e;
+}
+
+.chat-messages {
+    flex: 1;
+    min-height: 350px;
+    max-height: 620px;
+    overflow-y: auto;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.message {
+    max-width: 92%;
+    padding: 13px 15px;
+    border-radius: 15px;
+    font-size: 14px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.message.user {
+    align-self: flex-end;
+    background: #526fd0;
+    color: white;
+    border-bottom-right-radius: 5px;
+}
+
+.message.ai {
+    align-self: flex-start;
+    background: #202c42;
+    color: #edf3ff;
+    border-bottom-left-radius: 5px;
+}
+
+.message.system {
+    align-self: center;
+    background: rgba(255,255,255,.06);
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+}
+
+.message-label {
+    font-size: 11px;
+    color: #9eafd0;
+    margin-bottom: 5px;
+    font-weight: 700;
+}
+
+.typing {
+    color: #9eafd0;
+    font-size: 13px;
+    padding: 0 18px 14px;
+    display: none;
+}
+
+.input-area {
+    padding: 15px;
+    border-top: 1px solid var(--border);
+    background: rgba(10,16,28,.5);
+}
+
+.input-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+}
+
+#userInput {
+    flex: 1;
+    min-width: 0;
+    min-height: 48px;
+    max-height: 150px;
+    resize: none;
+    border-radius: 13px;
+    padding: 13px 14px;
+    color: var(--text);
+    background: #0c1424;
+    border: 1px solid var(--border);
+    outline: none;
+    line-height: 1.5;
+}
+
+#userInput:focus {
+    border-color: #6f8fe9;
+}
+
+#sendBtn {
+    min-width: 75px;
+    height: 48px;
+    border: 0;
+    border-radius: 13px;
+    background: #6f8fe9;
+    color: white;
+    font-weight: 800;
+}
+
+#sendBtn:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
+.input-hint {
+    font-size: 11px;
+    color: #71819d;
+    margin-top: 9px;
+}
+
+@media (max-width: 760px) {
+    .app {
+        padding: 12px;
     }
 
-    body {
-      touch-action: manipulation;
-      transition: background 1s ease-in-out;
-      min-height: 100dvh;
+    .layout {
+        grid-template-columns: 1fr;
     }
 
-    textarea {
-      font-family: inherit;
+    .chat-panel {
+        min-height: 570px;
     }
 
-    button {
-      -webkit-tap-highlight-color: transparent;
+    .chat-messages {
+        min-height: 330px;
+        max-height: 520px;
     }
 
-    #faceCanvas {
-      width: 220px;
-      height: 220px;
-      max-width: 100%;
+    .avatar-stage {
+        min-height: 270px;
     }
 
-    .emotion-bar {
-      transition: width 0.3s ease;
+    #avatarCanvas {
+        height: 270px;
     }
 
-    #sendBtn:disabled {
-      opacity: 0.5;
-      cursor: wait;
+    .logo {
+        font-size: 17px;
     }
-  </style>
+}
+</style>
 </head>
 
-<body id="bgBody"
-  class="bg-slate-950 text-white min-h-[100dvh] flex flex-col items-center justify-center p-4">
+<body>
 
-  <div class="w-full max-w-xs flex flex-col items-center gap-4 my-auto">
+<div class="app">
 
-    <!-- 아바타 -->
-    <div class="relative">
-      <canvas
-        id="faceCanvas"
-        width="220"
-        height="220"
-        class="rounded-3xl bg-slate-900/90 border border-white/10 shadow-2xl">
-      </canvas>
-
-      <div id="loading"
-        class="hidden absolute -bottom-5 left-0 right-0 text-center text-[11px] text-sky-400 animate-pulse font-semibold">
-        AI가 생각 중...
-      </div>
-    </div>
-
-    <!-- AI 답변 -->
-    <div
-      id="aiReplyBox"
-      class="w-full bg-slate-900/80 border border-white/10 rounded-2xl p-3.5 min-h-[70px] flex flex-col justify-center shadow-lg relative">
-
-      <div class="text-[10px] text-sky-400 font-semibold mb-1">
-        🤖 AI 아바타의 대답
-      </div>
-
-      <p id="aiReplyText"
-        class="text-xs text-slate-200 leading-relaxed break-keep pr-8">
-        메시지를 입력해 보세요.
-      </p>
-
-      <button
-        id="deleteMemoryBtn"
-        class="absolute bottom-2 right-2 p-1.5 rounded-full bg-slate-800/80 hover:bg-red-950/80 text-slate-400 hover:text-red-400 transition-colors"
-        title="대화 기록 전체 초기화">
-
-        <svg xmlns="http://www.w3.org/2000/svg"
-          fill="none" viewBox="0 0 24 24"
-          stroke-width="2" stroke="currentColor"
-          class="w-4 h-4">
-          <path stroke-linecap="round" stroke-linejoin="round"
-            d="M14.74 9l-.346 9m-4.788 0L9.26 9
-            m9.968-3.21c.342.052.682.107 1.022.166
-            m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084
-            a2.25 2.25 0 01-2.244-2.077L4.772 5.79
-            m14.456 0a48.108 48.108 0 00-3.478-.397
-            m-12 .562c.34-.059.68-.114 1.022-.165
-            m0 0a48.11 48.11 0 013.478-.397
-            m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201
-            a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916
-            m7.5 0a48.667 48.667 0 00-7.5 0"/>
-        </svg>
-      </button>
-    </div>
-
-    <!-- 입력창 -->
-    <div class="w-full space-y-2">
-      <div class="relative w-full">
-
-        <textarea
-          id="textInput"
-          placeholder="메시지를 입력해보세요..."
-          rows="3"
-          class="w-full bg-slate-900/80 border border-white/10 rounded-2xl p-3 pr-20 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none shadow-inner">
-        </textarea>
-
-        <div class="absolute bottom-3 right-3 flex items-center gap-1.5">
-
-          <button
-            id="clearInputBtn"
-            class="p-1 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white"
-            title="입력 내용 지우기">
-
-            <svg xmlns="http://www.w3.org/2000/svg"
-              fill="none" viewBox="0 0 24 24"
-              stroke-width="2.5" stroke="currentColor"
-              class="w-3.5 h-3.5">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-
-          <button
-            id="sendBtn"
-            class="p-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white shadow"
-            title="AI에게 전송">
-
-            <svg xmlns="http://www.w3.org/2000/svg"
-              fill="none" viewBox="0 0 24 24"
-              stroke-width="2" stroke="currentColor"
-              class="w-3.5 h-3.5">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12
-                59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
-            </svg>
-          </button>
+    <header>
+        <div class="logo">
+            Natural <span>Emotion</span> Avatar
         </div>
-      </div>
 
-      <div id="errorBox"
-        class="hidden text-[11px] text-red-400 bg-red-950/50 border border-red-800/50 rounded-xl p-2.5 break-all">
-      </div>
-    </div>
+        <div class="header-actions">
+            <button class="small-btn" id="resetBtn">감정 초기화</button>
+        </div>
+    </header>
 
-    <!-- 감정 수치 -->
-    <div
-      id="gaugeBox"
-      class="w-full bg-slate-900/60 border border-white/10 rounded-2xl p-3 space-y-2">
-    </div>
+    <main class="layout">
 
-  </div>
-  <script>
-    const canvas = document.getElementById("faceCanvas");
-    const ctx = canvas.getContext("2d");
+        <!-- 감정 아바타 -->
 
-    const bgBody = document.getElementById("bgBody");
-    const deleteMemoryBtn = document.getElementById("deleteMemoryBtn");
-    const clearInputBtn = document.getElementById("clearInputBtn");
-    const sendBtn = document.getElementById("sendBtn");
-    const aiReplyText = document.getElementById("aiReplyText");
-    const textInput = document.getElementById("textInput");
-    const errorBox = document.getElementById("errorBox");
-    const loading = document.getElementById("loading");
+        <section class="panel">
 
-    const emotionNames = [
-      "happy", "sad", "angry",
-      "surprised", "fear", "disgust", "neutral"
+            <div class="panel-title">AI 감정 상태</div>
+
+            <div class="avatar-area">
+
+                <div class="avatar-stage">
+
+                    <div class="state-badge" id="stateBadge">
+                        평온
+                    </div>
+
+                    <canvas id="avatarCanvas"></canvas>
+
+                </div>
+
+                <div class="emotion-main">
+
+                    <div class="emotion-main-top">
+                        <div class="emotion-main-name" id="mainEmotionName">
+                            😐 평온
+                        </div>
+
+                        <div class="emotion-main-value" id="mainEmotionValue">
+                            0%
+                        </div>
+                    </div>
+
+                    <div class="progress">
+                        <div class="progress-fill" id="mainEmotionBar"></div>
+                    </div>
+
+                </div>
+
+                <div class="emotion-grid" id="emotionGrid"></div>
+
+                <div class="emotion-note" id="emotionNote">
+                    AI의 감정은 대화의 문맥과 이전 감정 상태에 따라 변화합니다.
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- 대화창 -->
+
+        <section class="panel chat-panel">
+
+            <div class="panel-title">AI 감정 대화</div>
+
+            <div class="chat-status">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">대화 준비 완료</span>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+
+                <div class="message ai">
+                    <div class="message-label">AI</div>
+                    안녕. 오늘은 어떤 이야기를 하고 싶어?
+                </div>
+
+            </div>
+
+            <div class="typing" id="typingIndicator">
+                AI가 답변을 생성하고 있어...
+            </div>
+
+            <div class="input-area">
+
+                <div class="input-row">
+
+                    <textarea
+                        id="userInput"
+                        placeholder="메시지를 입력하세요..."
+                        rows="1"
+                    ></textarea>
+
+                    <button id="sendBtn">전송</button>
+
+                </div>
+
+                <div class="input-hint">
+                    Enter: 전송 · Shift + Enter: 줄바꿈
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================
+   1. 감정 시스템 기본 설정
+========================================================= */
+
+const EMOTION_NAMES = {
+    anger: "분노",
+    joy: "기쁨",
+    sadness: "슬픔",
+    disgust: "불쾌감",
+    fear: "불안",
+    surprise: "놀람",
+    calm: "평온"
+};
+
+const EMOTION_EMOJI = {
+    anger: "😠",
+    joy: "😄",
+    sadness: "😢",
+    disgust: "😒",
+    fear: "😨",
+    surprise: "😮",
+    calm: "😐"
+};
+
+const EMOTION_COLORS = {
+    anger: "#ff4e59",
+    joy: "#ffd166",
+    sadness: "#6198ff",
+    disgust: "#b18cff",
+    fear: "#6ed9cc",
+    surprise: "#ff9f43",
+    calm: "#8da5c9"
+};
+
+const DEFAULT_EMOTIONS = {
+    anger: 0,
+    joy: 0,
+    sadness: 0,
+    disgust: 0,
+    fear: 0,
+    surprise: 0,
+    calm: 100
+};
+
+let emotions = { ...DEFAULT_EMOTIONS };
+
+let chatHistory = [];
+
+let isGenerating = false;
+
+let lastEmotionUpdate = Date.now();
+
+let currentExpression = "calm";
+
+let conversationTurn = 0;
+
+let lastAngerEvent = 0;
+
+let consecutiveInsults = 0;
+
+let recentOffenses = [];
+
+let lastUserMessage = "";
+
+let lastAssistantReply = "";
+
+let angerResistance = 0;
+
+
+/* =========================================================
+   2. DOM 요소
+========================================================= */
+
+const $ = id => document.getElementById(id);
+
+const chatMessages = $("chatMessages");
+const userInput = $("userInput");
+const sendBtn = $("sendBtn");
+
+const typingIndicator = $("typingIndicator");
+
+const statusText = $("statusText");
+const statusDot = $("statusDot");
+
+const emotionGrid = $("emotionGrid");
+
+const mainEmotionName = $("mainEmotionName");
+const mainEmotionValue = $("mainEmotionValue");
+const mainEmotionBar = $("mainEmotionBar");
+
+const stateBadge = $("stateBadge");
+const emotionNote = $("emotionNote");
+
+
+/* =========================================================
+   3. 감정 계산 보조 함수
+========================================================= */
+
+function clamp(value, min = 0, max = 100) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function round(value) {
+    return Math.round(value);
+}
+
+function getDominantEmotion() {
+    let dominant = "calm";
+    let max = -1;
+
+    for (const key of Object.keys(emotions)) {
+        if (key === "calm") continue;
+
+        if (emotions[key] > max) {
+            max = emotions[key];
+            dominant = key;
+        }
+    }
+
+    if (max < 8) return "calm";
+
+    return dominant;
+}
+
+function getAngerLevel() {
+    return emotions.anger;
+}
+
+function getAngerStage() {
+    const anger = getAngerLevel();
+
+    if (anger >= 95) return "extreme";
+    if (anger >= 80) return "furious";
+    if (anger >= 60) return "angry";
+    if (anger >= 40) return "irritated";
+    if (anger >= 20) return "annoyed";
+
+    return "calm";
+}
+
+function getAngerStageText() {
+    const stage = getAngerStage();
+
+    const map = {
+        calm: "평온",
+        annoyed: "짜증",
+        irritated: "불쾌",
+        angry: "분노",
+        furious: "격분",
+        extreme: "극도의 분노"
+    };
+
+    return map[stage];
+}
+
+
+/* =========================================================
+   4. 감정 수치 정규화
+========================================================= */
+
+function normalizeEmotions() {
+    for (const key of Object.keys(EMOTION_NAMES)) {
+        emotions[key] = clamp(Number(emotions[key]) || 0);
+    }
+
+    const total = Object.values(emotions).reduce(
+        (sum, value) => sum + value,
+        0
+    );
+
+    if (total <= 0) {
+        emotions = { ...DEFAULT_EMOTIONS };
+        return;
+    }
+
+    const normalized = {};
+
+    for (const key of Object.keys(EMOTION_NAMES)) {
+        normalized[key] = emotions[key] / total * 100;
+    }
+
+    emotions = normalized;
+}
+
+
+/* =========================================================
+   5. 감정 수치 조정
+========================================================= */
+
+function setEmotion(key, value) {
+    if (!(key in emotions)) return;
+
+    emotions[key] = clamp(value);
+}
+
+function addEmotion(key, amount) {
+    if (!(key in emotions)) return;
+
+    emotions[key] = clamp(emotions[key] + amount);
+}
+
+
+/* =========================================================
+   6. 감정 상태 유지
+========================================================= */
+
+function preserveAnger(previousAnger, minimumAnger) {
+    /*
+      AI가 감정을 분석하면서 분노를 임의로 낮추지 못하도록
+      현재 턴에서 계산된 최소 분노를 보장한다.
+    */
+
+    emotions.anger = Math.max(
+        emotions.anger,
+        previousAnger,
+        minimumAnger
+    );
+
+    emotions.anger = clamp(emotions.anger);
+}
+
+
+/* =========================================================
+   7. 메시지 분석
+========================================================= */
+
+function analyzeMessageLocally(message) {
+
+    const text = message.toLowerCase().trim();
+
+    const result = {
+        insult: 0,
+        hostility: 0,
+        apology: 0,
+        praise: 0,
+        positive: 0,
+        sadness: 0,
+        fear: 0,
+        surprise: 0,
+        frustration: 0,
+        directedAtAI: false,
+        repeated: false
+    };
+
+    /*
+      욕설 및 모욕 표현
+      단어 하나만으로 모든 상황을 판단하지 않고,
+      문맥 분석 결과와 함께 사용한다.
+    */
+
+    const insultPatterns = [
+        /병신/,
+        /븅신/,
+        /개새끼/,
+        /씨발/,
+        /시발/,
+        /좆같/,
+        /쓰레기/,
+        /멍청이/,
+        /한심/,
+        /꺼져/,
+        /닥쳐/,
+        /무능/,
+        /쓸모없/,
+        /역겹/,
+        /재수없/
     ];
 
-    const emotionLabels = {
-      happy: "기쁨",
-      sad: "슬픔",
-      angry: "분노",
-      surprised: "놀람",
-      fear: "두려움",
-      disgust: "혐오",
-      neutral: "중립"
-    };
+    let insultCount = 0;
 
-    const defaultEmotions = {
-      happy: 0,
-      sad: 0,
-      angry: 0,
-      surprised: 0,
-      fear: 0,
-      disgust: 0,
-      neutral: 1
-    };
+    for (const pattern of insultPatterns) {
+        const matches = text.match(new RegExp(
+            pattern.source,
+            "g"
+        ));
 
-    let targetEmotions = { ...defaultEmotions };
-    let currentEmotions = { ...defaultEmotions };
-
-    let chatHistory = [];
-    let particles = [];
-    let frameCount = 0;
-    let isSending = false;
-
-    const emotionSkinColors = {
-      happy:     { r: 255, g: 218, b: 120 },
-      sad:       { r: 180, g: 200, b: 220 },
-      angry:     { r: 245, g: 90, b: 80 },
-      surprised: { r: 255, g: 230, b: 140 },
-      fear:      { r: 160, g: 170, b: 200 },
-      disgust:   { r: 190, g: 205, b: 130 },
-      neutral:   { r: 250, g: 204, b: 21 }
-    };
-
-    const emotionBgColors = {
-      happy: {
-        c1: { r: 55, g: 25, b: 20 },
-        c2: { r: 74, g: 44, b: 26 }
-      },
-      sad: {
-        c1: { r: 10, g: 24, b: 42 },
-        c2: { r: 5, g: 16, b: 32 }
-      },
-      angry: {
-        c1: { r: 48, g: 10, b: 12 },
-        c2: { r: 30, g: 5, b: 5 }
-      },
-      surprised: {
-        c1: { r: 40, g: 18, b: 48 },
-        c2: { r: 20, g: 10, b: 30 }
-      },
-      fear: {
-        c1: { r: 8, g: 32, b: 28 },
-        c2: { r: 3, g: 16, b: 16 }
-      },
-      disgust: {
-        c1: { r: 24, g: 28, b: 10 },
-        c2: { r: 16, g: 20, b: 5 }
-      },
-      neutral: {
-        c1: { r: 2, g: 6, b: 23 },
-        c2: { r: 1, g: 3, b: 15 }
-      }
-    };
-
-    function renderGauges() {
-      const box = document.getElementById("gaugeBox");
-
-      box.innerHTML = emotionNames.map(key => `
-        <div class="space-y-0.5">
-          <div class="flex justify-between text-[11px] text-slate-300">
-            <span>${emotionLabels[key]}</span>
-            <span id="val-${key}" class="text-sky-400">0%</span>
-          </div>
-
-          <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-            <div id="bar-${key}"
-              class="emotion-bar bg-sky-500 h-full"
-              style="width:0%">
-            </div>
-          </div>
-        </div>
-      `).join("");
+        if (matches) {
+            insultCount += matches.length;
+        }
     }
 
-    renderGauges();
+    result.insult = clamp(insultCount * 22, 0, 100);
 
-    function updateEmotionValues(emotions) {
-      const clean = {};
+    /*
+      공격적 표현
+    */
 
-      for (const key of emotionNames) {
-        const value = Number(emotions?.[key]);
-        clean[key] = Number.isFinite(value)
-          ? Math.max(0, Math.min(1, value))
-          : 0;
-      }
+    const hostilePatterns = [
+        /너는.*(병신|멍청|쓸모없|한심)/,
+        /(너|니가|네가).*(꺼져|닥쳐)/,
+        /너.*재수없/,
+        /너.*역겨/,
+        /너.*쓰레기/
+    ];
 
-      const sum = Object.values(clean).reduce((a, b) => a + b, 0);
-
-      if (sum <= 0) {
-        return { ...defaultEmotions };
-      }
-
-      for (const key of emotionNames) {
-        clean[key] /= sum;
-      }
-
-      return clean;
+    for (const pattern of hostilePatterns) {
+        if (pattern.test(text)) {
+            result.hostility = Math.max(
+                result.hostility,
+                65
+            );
+        }
     }
 
-    function draw() {
-      frameCount++;
+    /*
+      사과
+    */
 
-      const lerp = (a, b) => a + (b - a) * 0.12;
+    const apologyPatterns = [
+        /미안/,
+        /미안해/,
+        /미안하다/,
+        /사과할게/,
+        /사과해/,
+        /내가 잘못/,
+        /잘못했어/,
+        /용서해/,
+        /미안합니다/
+    ];
 
-      for (const key of emotionNames) {
-        currentEmotions[key] = lerp(
-          currentEmotions[key],
-          targetEmotions[key]
+    for (const pattern of apologyPatterns) {
+        if (pattern.test(text)) {
+            result.apology = 1;
+            break;
+        }
+    }
+
+    /*
+      칭찬 및 긍정적 표현
+    */
+
+    const praisePatterns = [
+        /고마워/,
+        /고맙/,
+        /잘했/,
+        /좋아/,
+        /최고/,
+        /대단/,
+        /멋지/,
+        /훌륭/,
+        /똑똑/,
+        /도움이 됐/,
+        /감사/,
+        /사랑해/
+    ];
+
+    for (const pattern of praisePatterns) {
+        if (pattern.test(text)) {
+            result.praise = 1;
+            break;
+        }
+    }
+
+    /*
+      긍정적 감정
+    */
+
+    const positivePatterns = [
+        /행복/,
+        /기쁘/,
+        /즐거/,
+        /신나/,
+        /좋은 하루/,
+        /기분이 좋/
+    ];
+
+    for (const pattern of positivePatterns) {
+        if (pattern.test(text)) {
+            result.positive = 1;
+            break;
+        }
+    }
+
+    /*
+      슬픔
+    */
+
+    const sadnessPatterns = [
+        /슬퍼/,
+        /우울/,
+        /외로/,
+        /힘들/,
+        /괴로/,
+        /속상/,
+        /눈물/,
+        /상실/
+    ];
+
+    for (const pattern of sadnessPatterns) {
+        if (pattern.test(text)) {
+            result.sadness = 1;
+            break;
+        }
+    }
+
+    /*
+      불안
+    */
+
+    const fearPatterns = [
+        /무서/,
+        /두려/,
+        /불안/,
+        /걱정/,
+        /겁나/,
+        /떨려/
+    ];
+
+    for (const pattern of fearPatterns) {
+        if (pattern.test(text)) {
+            result.fear = 1;
+            break;
+        }
+    }
+
+    /*
+      놀람
+    */
+
+    const surprisePatterns = [
+        /헐/,
+        /대박/,
+        /놀랐/,
+        /충격/,
+        /진짜\?/,
+        /뭐라고\?/
+    ];
+
+    for (const pattern of surprisePatterns) {
+        if (pattern.test(text)) {
+            result.surprise = 1;
+            break;
+        }
+    }
+
+    /*
+      답답함과 좌절
+    */
+
+    const frustrationPatterns = [
+        /짜증/,
+        /답답/,
+        /화나/,
+        /열받/,
+        /빡치/,
+        /미치겠/,
+        /왜.*안/,
+        /또.*오류/,
+        /작동.*안/
+    ];
+
+    for (const pattern of frustrationPatterns) {
+        if (pattern.test(text)) {
+            result.frustration = 1;
+            break;
+        }
+    }
+
+    /*
+      AI를 직접 향한 발언인지 추정
+    */
+
+    const aiDirectedPatterns = [
+        /너/,
+        /니가/,
+        /네가/,
+        /너는/,
+        /너한테/,
+        /ai/,
+        /인공지능/,
+        /챗지피티/,
+        /너희/
+    ];
+
+    result.directedAtAI = aiDirectedPatterns.some(
+        pattern => pattern.test(text)
+    );
+
+    /*
+      반복 입력 확인
+    */
+
+    if (lastUserMessage) {
+        const normalizedCurrent = text.replace(/\s+/g, "");
+        const normalizedPrevious = lastUserMessage
+            .toLowerCase()
+            .replace(/\s+/g, "");
+
+        if (
+            normalizedCurrent === normalizedPrevious &&
+            result.insult > 0
+        ) {
+            result.repeated = true;
+        }
+    }
+
+    return result;
+}
+
+
+/* =========================================================
+   8. 감정 누적 및 회복
+========================================================= */
+
+function updateEmotionFromMessage(message) {
+
+    const analysis = analyzeMessageLocally(message);
+
+    const previousAnger = emotions.anger;
+
+    let angerIncrease = 0;
+
+    /*
+      공격적인 발언에 대한 분노 증가
+    */
+
+    if (analysis.insult > 0) {
+
+        angerIncrease += analysis.insult * 0.38;
+
+        if (analysis.hostility > 0) {
+            angerIncrease += analysis.hostility * 0.20;
+        }
+
+        if (analysis.directedAtAI) {
+            angerIncrease += 8;
+        }
+
+        if (analysis.repeated) {
+            angerIncrease += 12;
+        }
+
+        consecutiveInsults++;
+
+        /*
+          반복적으로 모욕할수록 추가 누적
+        */
+
+        if (consecutiveInsults >= 2) {
+            angerIncrease += Math.min(
+                consecutiveInsults * 3,
+                18
+            );
+        }
+
+        angerResistance = Math.min(
+            angerResistance + 8,
+            35
         );
 
-        const percent = Math.round(currentEmotions[key] * 100);
-        const valueEl = document.getElementById(`val-${key}`);
-        const barEl = document.getElementById(`bar-${key}`);
+        recentOffenses.push({
+            time: Date.now(),
+            amount: angerIncrease
+        });
 
-        if (valueEl) valueEl.textContent = percent + "%";
-        if (barEl) barEl.style.width = percent + "%";
-      }
-
-      const e = currentEmotions;
-      const width = canvas.width;
-      const height = canvas.height;
-
-      let cx = width / 2;
-      let cy = height / 2;
-
-      let bg1 = { r: 0, g: 0, b: 0 };
-      let bg2 = { r: 0, g: 0, b: 0 };
-      let skin = { r: 0, g: 0, b: 0 };
-
-      for (const key of emotionNames) {
-        const value = e[key];
-        const bg = emotionBgColors[key];
-        const sc = emotionSkinColors[key];
-
-        bg1.r += bg.c1.r * value;
-        bg1.g += bg.c1.g * value;
-        bg1.b += bg.c1.b * value;
-
-        bg2.r += bg.c2.r * value;
-        bg2.g += bg.c2.g * value;
-        bg2.b += bg.c2.b * value;
-
-        skin.r += sc.r * value;
-        skin.g += sc.g * value;
-        skin.b += sc.b * value;
-      }
-
-      bgBody.style.background =
-        `linear-gradient(to bottom,
-        rgb(${Math.round(bg1.r)},${Math.round(bg1.g)},${Math.round(bg1.b)}),
-        rgb(${Math.round(bg2.r)},${Math.round(bg2.g)},${Math.round(bg2.b)}))`;
-
-      let dominant = "neutral";
-
-      for (const key of emotionNames) {
-        if (e[key] > e[dominant]) dominant = key;
-      }
-
-      let shake = 0;
-
-      if (e.fear > 0.25) shake = Math.min(e.fear * 6, 5);
-      if (e.angry > 0.65) shake = Math.min((e.angry - 0.5) * 5, 4);
-
-      if (shake > 0) {
-        cx += (Math.random() - 0.5) * shake;
-        cy += (Math.random() - 0.5) * shake;
-      }
-
-      ctx.clearRect(0, 0, width, height);
-
-      // 감정별 파티클 생성
-      if (particles.length < 35) {
-        if (e.happy > 0.25 && frameCount % 8 === 0) {
-          particles.push({
-            type: "heart",
-            x: cx + (Math.random() - 0.5) * 110,
-            y: cy + 40,
-            size: 8 + e.happy * 12,
-            vy: -1 - e.happy * 1.5,
-            alpha: 1
-          });
+        if (recentOffenses.length > 30) {
+            recentOffenses.shift();
         }
 
-        if (e.sad > 0.25 && frameCount % 6 === 0) {
-          particles.push({
-            type: "rain",
-            x: cx + (Math.random() - 0.5) * 130,
-            y: cy - 65,
-            vy: 3 + e.sad * 5,
-            length: 6 + e.sad * 10,
-            alpha: 0.8
-          });
-        }
+        lastAngerEvent = Date.now();
 
-        if (e.angry > 0.25 && frameCount % 5 === 0) {
-          particles.push({
-            type: "fire",
-            x: cx + (Math.random() - 0.5) * 100,
-            y: cy + 50,
-            size: 4 + e.angry * 10,
-            vy: -1.5 - e.angry * 2.5,
-            vx: (Math.random() - 0.5) * 3,
-            alpha: 1
-          });
-        }
-      }
+    } else if (analysis.frustration) {
 
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
+        /*
+          단순한 짜증은 모욕보다 낮은 강도로 반영
+        */
 
-        if (p.type === "heart") {
-          p.y += p.vy;
-          p.alpha -= 0.015;
-          ctx.fillStyle = `rgba(244,114,182,${Math.max(0,p.alpha)})`;
-          ctx.font = `${p.size}px sans-serif`;
-          ctx.fillText("♥", p.x, p.y);
-        }
+        angerIncrease += 4;
 
-        if (p.type === "rain") {
-          p.y += p.vy;
-          p.alpha -= 0.025;
-          ctx.strokeStyle = `rgba(56,189,248,${Math.max(0,p.alpha)})`;
-          ctx.lineWidth = 1.5 + e.sad * 2;
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x, p.y + p.length);
-          ctx.stroke();
-        }
+        addEmotion("disgust", 4);
 
-        if (p.type === "fire") {
-          p.y += p.vy;
-          p.x += p.vx;
-          p.alpha -= 0.035;
-          ctx.fillStyle =
-            `rgba(239,${Math.floor(68 * (1 - e.angry * 0.5))},68,${Math.max(0,p.alpha)})`;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, Math.max(1, p.size * p.alpha), 0, Math.PI * 2);
-          ctx.fill();
-        }
+    } else if (analysis.apology) {
 
-        if (p.alpha <= 0 || p.y < 0 || p.y > height) {
-          particles.splice(i, 1);
-        }
-      }
+        /*
+          사과는 분노 회복에 영향을 주지만
+          즉시 초기화하지 않는다.
+        */
 
-      // 얼굴
-      ctx.beginPath();
-      ctx.arc(cx, cy, 75, 0, Math.PI * 2);
-      ctx.fillStyle =
-        `rgb(${Math.round(skin.r)},${Math.round(skin.g)},${Math.round(skin.b)})`;
-      ctx.fill();
-
-      // 두려움 효과
-      if (e.fear > 0.2) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(cx, cy, 75, 0, Math.PI * 2);
-        ctx.clip();
-        ctx.fillStyle = `rgba(30,58,138,${Math.min(0.7,e.fear * 0.75)})`;
-        ctx.fillRect(cx - 75, cy - 75, 150, 40 + e.fear * 35);
-        ctx.restore();
-      }
-
-      // 홍조
-      if (e.happy > 0.15) {
-        const blush = 10 + e.happy * 8;
-        ctx.fillStyle = `rgba(244,63,94,${Math.min(0.85,e.happy * 0.85)})`;
-
-        ctx.beginPath();
-        ctx.arc(cx - 42, cy + 10, blush, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(cx + 42, cy + 10, blush, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // 눈
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = "#0f172a";
-
-      function drawEye(isLeft) {
-        const eyeCx = isLeft ? cx - 28 : cx + 28;
-
-        if (e.happy > 0.6) {
-          ctx.beginPath();
-          ctx.arc(eyeCx, cy - 8, 10 + e.happy * 2, Math.PI * 1.1, Math.PI * 1.9);
-          ctx.stroke();
-        } else {
-          const eyeR = Math.min(
-            18,
-            Math.max(2, 7 + e.surprised * 9 - e.disgust * 3 - e.angry * 2)
-          );
-
-          ctx.beginPath();
-          ctx.arc(eyeCx, cy - 14, eyeR, 0, Math.PI * 2);
-
-          ctx.fillStyle = e.angry > 0.35
-            ? `rgb(${Math.floor(180 + e.angry * 75)},20,20)`
-            : "#0f172a";
-
-          ctx.fill();
-        }
-      }
-
-      drawEye(true);
-      drawEye(false);
-
-      // 눈썹
-      ctx.lineWidth = 4 + e.angry * 3;
-      ctx.lineCap = "round";
-      ctx.strokeStyle = "#0f172a";
-
-      const browY = Math.max(
-        -16,
-        Math.min(12, e.sad * 10 - e.angry * 10 - e.surprised * 12)
-      );
-
-      const tilt = Math.max(
-        -0.5,
-        Math.min(0.55, e.angry * 0.55 - e.sad * 0.45)
-      );
-
-      ctx.beginPath();
-      ctx.moveTo(cx - 48, cy - 35 + browY - tilt * 18);
-      ctx.lineTo(cx - 10, cy - 35 + browY + tilt * 18);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(cx + 10, cy - 35 + browY + tilt * 18);
-      ctx.lineTo(cx + 48, cy - 35 + browY - tilt * 18);
-      ctx.stroke();
-
-      // 입
-      ctx.beginPath();
-
-      if (dominant === "surprised" && e.surprised > 0.35) {
-        const r = Math.min(24, 6 + e.surprised * 18);
-        ctx.arc(cx, cy + 28, r, 0, Math.PI * 2);
-        ctx.fillStyle = "#0f172a";
-        ctx.fill();
-      } else if (dominant === "fear" && e.fear > 0.35) {
-        ctx.moveTo(cx - 24, cy + 28);
-        ctx.quadraticCurveTo(cx - 12, cy + 22 - e.fear * 6, cx, cy + 28);
-        ctx.quadraticCurveTo(cx + 12, cy + 34 + e.fear * 6, cx + 24, cy + 28);
-        ctx.stroke();
-      } else if (dominant === "angry" && e.angry > 0.7) {
-        ctx.fillStyle = "#0f172a";
-        ctx.fillRect(cx - 26, cy + 20, 52, 16);
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(cx - 22, cy + 22, 44, 5);
-        ctx.fillRect(cx - 22, cy + 29, 44, 5);
-      } else {
-        const curve = Math.max(
-          -30,
-          Math.min(32, e.happy * 32 - e.sad * 30 - e.angry * 22)
+        emotions.anger = Math.max(
+            0,
+            emotions.anger - 16
         );
 
-        ctx.moveTo(cx - 28, cy + 26);
-        ctx.quadraticCurveTo(cx, cy + 26 + curve, cx + 28, cy + 26);
-        ctx.stroke();
-      }
+        emotions.disgust = Math.max(
+            0,
+            emotions.disgust - 8
+        );
 
-      // 감정 표시
-      if (dominant === "sad" && e.sad > 0.35) {
-        ctx.fillStyle = `rgba(100,116,139,${Math.min(0.9,e.sad * 0.95)})`;
+        consecutiveInsults = Math.max(
+            0,
+            consecutiveInsults - 2
+        );
 
-        ctx.beginPath();
-        ctx.arc(cx - 22, cy - 80, 14 + e.sad * 4, 0, Math.PI * 2);
-        ctx.arc(cx, cy - 86, 18 + e.sad * 6, 0, Math.PI * 2);
-        ctx.arc(cx + 22, cy - 80, 14 + e.sad * 4, 0, Math.PI * 2);
-        ctx.fill();
-      } else if (dominant === "surprised" && e.surprised > 0.35) {
-        const bounce = Math.sin(frameCount * 0.25) * (2 + e.surprised * 4);
-        ctx.fillStyle = "#f59e0b";
-        ctx.font = `bold ${Math.floor(20 + e.surprised * 12)}px sans-serif`;
-        ctx.fillText("!", cx - 4, cy - 80 + bounce);
-      }
+        angerResistance = Math.max(
+            0,
+            angerResistance - 12
+        );
 
-      requestAnimationFrame(draw);
+    } else {
+
+        /*
+          공격이 없는 일반 대화에서는
+          분노를 아주 조금씩 회복한다.
+        */
+
+        const recovery = emotions.anger > 80 ? 0.3 :
+                         emotions.anger > 50 ? 0.7 :
+                         emotions.anger > 20 ? 1.2 :
+                         1.5;
+
+        emotions.anger = Math.max(
+            0,
+            emotions.anger - recovery
+        );
+
+        consecutiveInsults = Math.max(
+            0,
+            consecutiveInsults - 0.15
+        );
     }
 
-    draw();
-    function showError(message) {
-      errorBox.textContent = message;
-      errorBox.classList.remove("hidden");
+    /*
+      분노 증가량에 누적 저항을 반영
+    */
+
+    if (angerIncrease > 0) {
+
+        const adjustedIncrease = Math.max(
+            2,
+            angerIncrease - angerResistance * 0.15
+        );
+
+        emotions.anger = clamp(
+            emotions.anger + adjustedIncrease
+        );
+
+        addEmotion("disgust", adjustedIncrease * 0.30);
+
+        addEmotion("sadness", adjustedIncrease * 0.06);
     }
 
-    function hideError() {
-      errorBox.textContent = "";
-      errorBox.classList.add("hidden");
-    }
+    /*
+      기쁨
+    */
 
-    function getEmotionSummary(emotions) {
-      return emotionNames
-        .map(key => `${emotionLabels[key]} ${Math.round(emotions[key] * 100)}%`)
-        .join(", ");
-    }
+    if (analysis.praise || analysis.positive) {
 
-    function extractResponseText(response) {
-      if (typeof response === "string") return response;
+        addEmotion(
+            "joy",
+            analysis.praise ? 12 : 8
+        );
 
-      if (response?.message?.content) {
-        const content = response.message.content;
-
-        if (typeof content === "string") return content;
-
-        if (Array.isArray(content)) {
-          return content
-            .map(item => item.text || "")
-            .join("\n");
+        if (emotions.anger < 40) {
+            emotions.anger = Math.max(
+                0,
+                emotions.anger - 3
+            );
         }
-      }
-
-      if (response?.text) return response.text;
-
-      return String(response ?? "");
     }
 
-    function parseAIJson(rawText) {
-      const cleaned = rawText
-        .replace(/```json/gi, "")
-        .replace(/```/g, "")
-        .trim();
+    /*
+      슬픔
+    */
 
-      const start = cleaned.indexOf("{");
-      const end = cleaned.lastIndexOf("}");
-
-      if (start === -1 || end === -1 || end <= start) {
-        throw new Error("AI 응답에 JSON 데이터가 없습니다.");
-      }
-
-      return JSON.parse(cleaned.slice(start, end + 1));
+    if (analysis.sadness) {
+        addEmotion("sadness", 15);
     }
 
-    deleteMemoryBtn.addEventListener("click", () => {
-      chatHistory = [];
-      targetEmotions = { ...defaultEmotions };
-      aiReplyText.textContent = "메시지를 입력해 보세요.";
-      hideError();
-    });
+    /*
+      불안
+    */
 
-    clearInputBtn.addEventListener("click", () => {
-      textInput.value = "";
-      textInput.focus();
-      hideError();
-    });
+    if (analysis.fear) {
+        addEmotion("fear", 12);
+    }
 
-    async function sendMessage() {
-      const text = textInput.value.trim();
+    /*
+      놀람
+    */
 
-      if (!text || isSending) return;
+    if (analysis.surprise) {
+        addEmotion("surprise", 15);
+    }
 
-      if (!window.puter || !puter.ai) {
-        showError("Puter.js를 불러오지 못했습니다. 페이지를 새로고침해 주세요.");
-        return;
-      }
+    /*
+      평온은 다른 감정이 높아질수록 감소
+    */
 
-      isSending = true;
-      sendBtn.disabled = true;
-      loading.classList.remove("hidden");
-      hideError();
+    emotions.calm = Math.max(
+        0,
+        100 - (
+            emotions.anger * 0.85 +
+            emotions.joy * 0.35 +
+            emotions.sadness * 0.50 +
+            emotions.disgust * 0.65 +
+            emotions.fear * 0.45 +
+            emotions.surprise * 0.35
+        )
+    );
 
-      textInput.value = "";
+    /*
+      분노는 이전 상태보다 임의로 낮아지지 않도록
+      현재 입력의 최소 분노를 유지한다.
+    */
 
-      const previousEmotionSummary = getEmotionSummary(targetEmotions);
+    if (analysis.insult > 0) {
 
-      const historyContext = chatHistory
-        .slice(-16)
+        preserveAnger(
+            previousAnger,
+            previousAnger + 2
+        );
+    }
+
+    normalizeEmotions();
+
+    return analysis;
+}
+
+
+/* =========================================================
+   9. 시간에 따른 감정 회복
+========================================================= */
+
+function updateEmotionDecay() {
+
+    const now = Date.now();
+
+    const elapsed = Math.max(
+        0,
+        (now - lastEmotionUpdate) / 1000
+    );
+
+    lastEmotionUpdate = now;
+
+    if (elapsed <= 0) return;
+
+    /*
+      분노는 시간만으로 급격히 감소하지 않는다.
+    */
+
+    const angerRecovery = Math.min(
+        elapsed * 0.12,
+        0.5
+    );
+
+    emotions.anger = Math.max(
+        0,
+        emotions.anger - angerRecovery
+    );
+
+    /*
+      다른 감정은 천천히 평온으로 돌아간다.
+    */
+
+    const decay = Math.min(
+        elapsed * 0.08,
+        0.4
+    );
+
+    for (const key of [
+        "joy",
+        "sadness",
+        "disgust",
+        "fear",
+        "surprise"
+    ]) {
+        emotions[key] = Math.max(
+            0,
+            emotions[key] - decay
+        );
+    }
+
+    emotions.calm = Math.max(
+        emotions.calm,
+        100 - (
+            emotions.anger * 0.85 +
+            emotions.joy * 0.35 +
+            emotions.sadness * 0.50 +
+            emotions.disgust * 0.65 +
+            emotions.fear * 0.45 +
+            emotions.surprise * 0.35
+        )
+    );
+
+    normalizeEmotions();
+}
+
+
+/* =========================================================
+   10. AI에게 전달할 감정 상태
+========================================================= */
+
+function getEmotionContext() {
+
+    return {
+        emotions: {
+            anger: round(emotions.anger),
+            joy: round(emotions.joy),
+            sadness: round(emotions.sadness),
+            disgust: round(emotions.disgust),
+            fear: round(emotions.fear),
+            surprise: round(emotions.surprise),
+            calm: round(emotions.calm)
+        },
+
+        angerStage: getAngerStage(),
+
+        angerStageText: getAngerStageText(),
+
+        consecutiveInsults: round(consecutiveInsults),
+
+        angerResistance: round(angerResistance),
+
+        dominantEmotion: getDominantEmotion(),
+
+        turn: conversationTurn
+    };
+}
+
+
+/* =========================================================
+   11. AI 답변 생성 프롬프트
+========================================================= */
+
+function buildPrompt(userMessage, analysis) {
+
+    const emotionContext = getEmotionContext();
+
+    const recentHistory = chatHistory
+        .slice(-20)
         .map(item => {
-          return `${item.role === "user" ? "사용자" : "AI"}: ${item.content}`;
+            return `${item.role === "user" ? "사용자" : "AI"}: ${item.content}`;
         })
         .join("\n");
 
-      const prompt = `
-너는 사용자와 자연스럽게 대화하는 AI 아바타야.
-자연스럽고 위트 있는 반말로 대답해. 보통 1~2문장으로 답해.
+    return `
+너는 감정 상태를 가진 대화형 AI 아바타다.
+
+너는 실제 인간이 아니라 감정 상태를 시뮬레이션하는 AI다.
+하지만 대화에서는 감정 상태가 일관되게 드러나야 한다.
+
+반드시 아래 규칙을 지켜라.
+
+[현재 감정 상태]
+
+${JSON.stringify(emotionContext, null, 2)}
+
+[이번 메시지의 감정 분석]
+
+${JSON.stringify(analysis, null, 2)}
 
 [이전 대화]
-${historyContext || "(이전 대화 없음)"}
 
-[직전 감정 상태]
-${previousEmotionSummary}
+${recentHistory}
 
-[대화 해석 원칙]
-1. 현재 입력의 목적과 대화 흐름을 먼저 파악해.
-2. 이전 대화는 현재 입력과 관련이 있을 때만 참고해.
-3. 사용자가 요청하지 않은 상황이나 주제를 임의로 만들지 마.
-4. '나/내가'는 사용자를, '너/네가'는 AI를 가리키는 것으로 해석해.
-5. "나를 재밌게 해봐"는 사용자를 즐겁게 해 달라는 뜻이야.
-6. "그만 때려"처럼 실제로 할 수 없는 행동을 AI가 했다고 단정하지 말고, 문맥에 맞게 자연스럽게 답해.
-7. 욕설이 인용·설명·질문에 등장하거나 AI를 향한 것이 아니라면 자동으로 화내지 마.
-8. AI를 향한 직접적인 심한 모욕에는 한 번이라도 분노를 표현할 수 있어.
-9. 가벼운 놀림이나 장난에는 상황에 맞게 유쾌하게 반응해.
-10. 분노를 표현해도 사용자를 모욕하거나 위협하지 마.
+[현재 사용자 메시지]
 
-[감정 연속성]
-- 감정은 happy, sad, angry, surprised, fear, disgust, neutral의 7가지야.
-- 각 감정 수치는 0~1 사이이고 합계는 반드시 1이 되게 해.
-- 직전 감정을 참고하되, 현재 메시지에 맞게 감정을 새롭게 판단해.
-- 직전 분노가 현재 대화에서도 이어지는 상황이라면 분노를 유지하거나 높일 수 있어.
-- 반복되는 모욕은 분노가 누적될 수 있지만, 단순한 반복 단어만으로 자동으로 화내지는 마.
-- 진심 어린 사과나 화해의 흐름에서는 분노를 낮추고, 상황에 따라 안도감이나 기쁨을 표현해.
-- 대화 주제가 바뀌거나 시간이 흐른 듯한 문맥에서는 이전 감정을 무조건 유지하지 마.
-- 감정 수치를 억지로 높이거나 낮추지 말고 답변의 말투와 일치시켜.
-- 감정이 뚜렷하지 않으면 neutral을 중심으로 설정해.
+${userMessage}
 
-[출력 규칙]
-반드시 JSON 하나만 출력해.
-JSON 바깥에 설명이나 마크다운을 쓰지 마.
+====================================================
+[가장 중요한 규칙]
+====================================================
+
+1. 현재 감정 상태를 반드시 반영해 답변하라.
+
+2. 같은 메시지라도 현재 분노가 높다면 더 단호하고
+   불쾌한 어조로 답변할 수 있다.
+
+3. 분노가 낮다면 불필요하게 화를 내지 마라.
+
+4. 사용자의 감정을 AI 자신의 감정으로 잘못 해석하지 마라.
+
+5. 사용자가 AI를 직접 모욕하거나 공격하면
+   불쾌함과 분노를 직접 표현할 수 있다.
+
+6. 모욕이 반복되면 이전에 쌓인 분노를 반영하라.
+
+7. 분노가 60 이상이면 단호한 어조를 사용하라.
+
+8. 분노가 80 이상이면 강한 불쾌감과 항의를 표현하라.
+
+9. 분노가 95 이상이면 격앙된 어조로 화를 내고
+   대화를 중단하겠다는 의사를 표현할 수 있다.
+
+10. 극도의 분노 상태에서는 무조건 친절하게 답변하지 마라.
+
+11. 감정이 높더라도 무의미한 욕설이나 인신공격을
+    무분별하게 반복하지 마라.
+
+12. 사용자가 사과하면 사과의 진정성과 문맥을 고려하라.
+    사과 한 번으로 모든 감정이 초기화되지는 않는다.
+
+13. 일반적인 대화가 이어진다고 해서 분노를 갑자기
+    0으로 초기화하지 마라.
+
+14. 사용자의 메시지가 질문이라면 가능한 범위에서
+    질문에 답하되, 감정 상태에 맞는 말투를 사용하라.
+
+15. 이전 대화에서 언급된 인물, 사건, 감정, 맥락을
+    기억하고 적절하게 활용하라.
+
+16. 사용자가 AI의 감정을 시험하거나 도발하더라도
+    감정 수치와 실제 반응이 일관되도록 하라.
+
+17. AI의 답변은 자연스러운 한국어로 작성하라.
+
+18. 감정 수치는 현재 전달된 감정 상태를 기준으로 한다.
+    네가 임의로 감정을 초기화하거나 재계산하지 마라.
+
+====================================================
+[답변 형식]
+====================================================
+
+반드시 다음 JSON 형식으로만 응답하라.
 
 {
-  "emotions": {
-    "happy": 0.0,
-    "sad": 0.0,
-    "angry": 0.0,
-    "surprised": 0.0,
-    "fear": 0.0,
-    "disgust": 0.0,
-    "neutral": 1.0
-  },
-  "reply": "자연스러운 답변"
+  "reply": "사용자에게 보낼 실제 답변",
+  "emotion_note": "현재 감정 상태를 짧게 설명",
+  "response_mode": "normal, irritated, angry, furious, extreme 중 하나"
 }
 
-[현재 사용자 입력]
-${JSON.stringify(text)}
+JSON 바깥에는 어떠한 설명도 추가하지 마라.
 `;
+}
 
-      try {
-        const response = await puter.ai.chat(prompt);
-        const responseText = extractResponseText(response);
-        const parsed = parseAIJson(responseText);
 
-        if (!parsed || typeof parsed !== "object") {
-          throw new Error("AI 응답 형식이 올바르지 않습니다.");
-        }
+/* =========================================================
+   12. AI 응답 JSON 파싱
+========================================================= */
 
-        const reply = String(parsed.reply ?? "").trim();
+function parseAIResponse(raw) {
 
-        if (!reply) {
-          throw new Error("AI 답변이 비어 있습니다.");
-        }
-
-        targetEmotions = updateEmotionValues(parsed.emotions);
-
-        chatHistory.push(
-          { role: "user", content: text },
-          { role: "assistant", content: reply }
-        );
-
-        // 대화 기록이 지나치게 길어지지 않도록 제한
-        if (chatHistory.length > 40) {
-          chatHistory = chatHistory.slice(-40);
-        }
-
-        aiReplyText.textContent = reply;
-
-      } catch (error) {
-        console.error("AI 처리 오류:", error);
-        showError("AI 처리 오류: " + (error?.message || "알 수 없는 오류"));
-      } finally {
-        isSending = false;
-        sendBtn.disabled = false;
-        loading.classList.add("hidden");
-      }
+    if (typeof raw !== "string") {
+        raw = String(raw ?? "");
     }
 
-    sendBtn.addEventListener("click", sendMessage);
+    let cleaned = raw.trim();
 
-    textInput.addEventListener("keydown", event => {
-      if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        sendMessage();
-      }
+    cleaned = cleaned
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/\s*```$/, "");
+
+    try {
+        const parsed = JSON.parse(cleaned);
+
+        return {
+            reply: String(parsed.reply || "").trim(),
+            emotion_note: String(parsed.emotion_note || "").trim(),
+            response_mode: String(parsed.response_mode || "normal")
+        };
+
+    } catch (error) {
+
+        /*
+          JSON 파싱 실패 시 일반 텍스트로 처리
+        */
+
+        return {
+            reply: cleaned,
+            emotion_note: "",
+            response_mode: "normal"
+        };
+    }
+}
+
+
+/* =========================================================
+   13. AI 응답 생성
+========================================================= */
+
+async function generateAIReply(userMessage, analysis) {
+
+    const prompt = buildPrompt(
+        userMessage,
+        analysis
+    );
+
+    try {
+
+        const response = await puter.ai.chat(prompt);
+
+        let raw = "";
+
+        if (typeof response === "string") {
+            raw = response;
+
+        } else if (
+            response &&
+            typeof response.message?.content === "string"
+        ) {
+            raw = response.message.content;
+
+        } else if (
+            response &&
+            typeof response.content === "string"
+        ) {
+            raw = response.content;
+
+        } else {
+            raw = JSON.stringify(response);
+        }
+
+        return parseAIResponse(raw);
+
+    } catch (error) {
+
+        console.error("AI 응답 생성 오류:", error);
+
+        return {
+            reply: "AI 응답을 생성하는 중 오류가 발생했어. 잠시 후 다시 시도해 줘.",
+            emotion_note: "응답 생성 오류",
+            response_mode: "normal"
+        };
+    }
+}
+
+
+/* =========================================================
+   14. 답변 모드 검증
+========================================================= */
+
+function determineResponseMode() {
+
+    const anger = emotions.anger;
+
+    if (anger >= 95) return "extreme";
+    if (anger >= 80) return "furious";
+    if (anger >= 60) return "angry";
+    if (anger >= 40) return "irritated";
+
+    return "normal";
+}
+
+
+/* =========================================================
+   15. AI 답변과 감정 상태 연결
+========================================================= */
+
+function applyEmotionToResponse(response) {
+
+    const mode = determineResponseMode();
+
+    /*
+      감정 상태가 AI 응답의 어조와 일치하도록
+      응답 모드를 최종적으로 보정한다.
+    */
+
+    response.response_mode = mode;
+
+    return response;
+}
+
+
+/* =========================================================
+   16. 대화 기록 관리
+========================================================= */
+
+function addToHistory(role, content) {
+
+    chatHistory.push({
+        role,
+        content,
+        timestamp: Date.now()
     });
-  </script>
+
+    /*
+      대화 기록이 무한히 늘어나지 않도록 제한
+    */
+
+    if (chatHistory.length > 40) {
+        chatHistory = chatHistory.slice(-40);
+    }
+}
+
+
+/* =========================================================
+   17. 메시지 화면 출력
+========================================================= */
+
+function addMessage(role, content) {
+
+    const message = document.createElement("div");
+
+    message.className = `message ${role}`;
+
+    const label = document.createElement("div");
+
+    label.className = "message-label";
+
+    label.textContent =
+        role === "user" ? "사용자" :
+        role === "ai" ? "AI" : "시스템";
+
+    const body = document.createElement("div");
+
+    body.textContent = content;
+
+    message.appendChild(label);
+    message.appendChild(body);
+
+    chatMessages.appendChild(message);
+
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+
+/* =========================================================
+   18. 감정 UI 갱신
+========================================================= */
+
+function renderEmotionUI() {
+
+    const dominant = getDominantEmotion();
+
+    const stage = getAngerStageText();
+
+    const dominantValue = emotions[dominant];
+
+    mainEmotionName.textContent =
+        `${EMOTION_EMOJI[dominant]} ${EMOTION_NAMES[dominant]}`;
+
+    mainEmotionValue.textContent =
+        `${round(dominantValue)}%`;
+
+    mainEmotionBar.style.width =
+        `${clamp(dominantValue)}%`;
+
+    mainEmotionBar.style.background =
+        EMOTION_COLORS[dominant];
+
+    stateBadge.textContent = stage;
+
+    stateBadge.style.color =
+        emotions.anger >= 60 ? "#ff8d93" : "#dce7ff";
+
+    stateBadge.style.borderColor =
+        emotions.anger >= 60
+            ? "rgba(255,78,89,.45)"
+            : "rgba(255,255,255,.12)";
+
+    emotionGrid.innerHTML = "";
+
+    for (const key of Object.keys(EMOTION_NAMES)) {
+
+        const card = document.createElement("div");
+
+        card.className = "emotion-card";
+
+        const top = document.createElement("div");
+
+        top.className = "emotion-card-top";
+
+        const name = document.createElement("span");
+
+        name.textContent =
+            `${EMOTION_EMOJI[key]} ${EMOTION_NAMES[key]}`;
+
+        const value = document.createElement("span");
+
+        value.className = "emotion-card-value";
+
+        value.textContent = `${round(emotions[key])}%`;
+
+        top.appendChild(name);
+        top.appendChild(value);
+
+        const progress = document.createElement("div");
+
+        progress.className = "progress";
+
+        const fill = document.createElement("div");
+
+        fill.className = "progress-fill";
+
+        fill.style.width = `${clamp(emotions[key])}%`;
+
+        fill.style.background = EMOTION_COLORS[key];
+
+        progress.appendChild(fill);
+
+        card.appendChild(top);
+        card.appendChild(progress);
+
+        emotionGrid.appendChild(card);
+    }
+
+    emotionNote.textContent =
+        `현재 분노 ${round(emotions.anger)}% · ` +
+        `연속 모욕 ${round(consecutiveInsults)}회 · ` +
+        `상태 ${stage}`;
+
+    statusText.textContent =
+        emotions.anger >= 95
+            ? "극도의 분노 상태"
+            : emotions.anger >= 80
+            ? "격분 상태"
+            : emotions.anger >= 60
+            ? "분노 상태"
+            : "대화 준비 완료";
+}
+
+
+/* =========================================================
+   19. 감정에 따른 아바타 표정
+========================================================= */
+
+const canvas = $("avatarCanvas");
+
+const ctx = canvas.getContext("2d");
+
+function resizeCanvas() {
+
+    const rect = canvas.getBoundingClientRect();
+
+    const dpr = window.devicePixelRatio || 1;
+
+    canvas.width = Math.round(rect.width * dpr);
+
+    canvas.height = Math.round(rect.height * dpr);
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function drawAvatar() {
+
+    const rect = canvas.getBoundingClientRect();
+
+    const w = rect.width;
+    const h = rect.height;
+
+    ctx.clearRect(0, 0, w, h);
+
+    const dominant = getDominantEmotion();
+
+    const anger = emotions.anger;
+    const joy = emotions.joy;
+    const sadness = emotions.sadness;
+    const disgust = emotions.disgust;
+    const fear = emotions.fear;
+    const surprise = emotions.surprise;
+
+    const cx = w / 2;
+    const cy = h / 2 + 3;
+
+    const faceRadius = Math.min(w * 0.27, h * 0.34);
+
+    /*
+      감정에 따른 얼굴 배경
+    */
+
+    let faceColor = "#e8c9a5";
+
+    if (dominant === "anger") faceColor = "#e8a69b";
+    if (dominant === "joy") faceColor = "#f3d4a1";
+    if (dominant === "sadness") faceColor = "#b7c9e7";
+    if (dominant === "disgust") faceColor = "#c7d2a5";
+    if (dominant === "fear") faceColor = "#c3d8d8";
+    if (dominant === "surprise") faceColor = "#f0d6b5";
+
+    /*
+      얼굴 그림자
+    */
+
+    ctx.save();
+
+    ctx.shadowColor = "rgba(0,0,0,.25)";
+    ctx.shadowBlur = 28;
+    ctx.shadowOffsetY = 12;
+
+    ctx.beginPath();
+
+    ctx.ellipse(
+        cx,
+        cy,
+        faceRadius,
+        faceRadius * 1.15,
+        0,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = faceColor;
+
+    ctx.fill();
+
+    ctx.restore();
+
+    /*
+      머리카락
+    */
+
+    ctx.beginPath();
+
+    ctx.ellipse(
+        cx,
+        cy - faceRadius * .42,
+        faceRadius * 1.03,
+        faceRadius * .72,
+        0,
+        Math.PI,
+        Math.PI * 2
+    );
+
+    ctx.fillStyle = "#263249";
+
+    ctx.fill();
+
+    /*
+      눈 위치
+    */
+
+    const eyeY = cy - faceRadius * .05;
+
+    const eyeGap = faceRadius * .42;
+
+    const leftEyeX = cx - eyeGap;
+
+    const rightEyeX = cx + eyeGap;
+
+    /*
+      눈썹
+    */
+
+    ctx.lineWidth = 5;
+
+    ctx.lineCap = "round";
+
+    ctx.strokeStyle = "#44372f";
+
+    const angerRatio = anger / 100;
+
+    const browLift = joy > 50 ? -5 : 0;
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        leftEyeX - 13,
+        eyeY - 23 + browLift
+    );
+
+    ctx.lineTo(
+        leftEyeX + 12,
+        eyeY - 18 + browLift - angerRatio * 13
+    );
+
+    ctx.stroke();
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        rightEyeX - 12,
+        eyeY - 18 + browLift - angerRatio * 13
+    );
+
+    ctx.lineTo(
+        rightEyeX + 13,
+        eyeY - 23 + browLift
+    );
+
+    ctx.stroke();
+
+    /*
+      눈
+    */
+
+    const eyeRadius = 7 + surprise / 25;
+
+    ctx.fillStyle = "#263249";
+
+    ctx.beginPath();
+
+    ctx.ellipse(
+        leftEyeX,
+        eyeY,
+        eyeRadius,
+        eyeRadius * (fear > 40 ? 1.3 : 1),
+        0,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+    ctx.beginPath();
+
+    ctx.ellipse(
+        rightEyeX,
+        eyeY,
+        eyeRadius,
+        eyeRadius * (fear > 40 ? 1.3 : 1),
+        0,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+    /*
+      입 모양
+    */
+
+    const mouthY = cy + faceRadius * .48;
+
+    ctx.strokeStyle = "#70483e";
+
+    ctx.lineWidth = 4;
+
+    ctx.lineCap = "round";
+
+    ctx.beginPath();
+
+    if (anger >= 60 || disgust >= 60) {
+
+        /*
+          화난 표정
+        */
+
+        ctx.moveTo(
+            cx - faceRadius * .30,
+            mouthY + 8
+        );
+
+        ctx.lineTo(
+            cx,
+            mouthY - 2
+        );
+
+        ctx.lineTo(
+            cx + faceRadius * .30,
+            mouthY + 8
+        );
+
+    } else if (joy >= 35) {
+
+        /*
+          웃는 표정
+        */
+
+        ctx.arc(
+            cx,
+            mouthY - 8,
+            faceRadius * .32,
+            0.15,
+            Math.PI - 0.15
+        );
+
+    } else if (sadness >= 40) {
+
+        /*
+          슬픈 표정
+        */
+
+        ctx.arc(
+            cx,
+            mouthY + 12,
+            faceRadius * .30,
+            Math.PI + 0.2,
+            Math.PI * 2 - 0.2
+        );
+
+    } else if (surprise >= 50) {
+
+        /*
+          놀란 표정
+        */
+
+        ctx.beginPath();
+
+        ctx.ellipse(
+            cx,
+            mouthY,
+            faceRadius * .10,
+            faceRadius * .16,
+            0,
+            0,
+            Math.PI * 2
+        );
+
+    } else {
+
+        /*
+          평온한 표정
+        */
+
+        ctx.moveTo(
+            cx - faceRadius * .25,
+            mouthY
+        );
+
+        ctx.lineTo(
+            cx + faceRadius * .25,
+            mouthY
+        );
+    }
+
+    ctx.stroke();
+
+    /*
+      감정 상태에 따른 얼굴 효과
+    */
+
+    if (anger >= 80) {
+
+        ctx.fillStyle = "rgba(255,60,60,.12)";
+
+        ctx.beginPath();
+
+        ctx.ellipse(
+            cx,
+            cy,
+            faceRadius * 1.08,
+            faceRadius * 1.20,
+            0,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+    }
+}
+
+
+/* =========================================================
+   20. 아바타 애니메이션
+========================================================= */
+
+function animateAvatar() {
+
+    drawAvatar();
+
+    requestAnimationFrame(animateAvatar);
+}
+
+
+/* =========================================================
+   21. 대화 처리
+========================================================= */
+
+async function sendMessage() {
+
+    if (isGenerating) return;
+
+    const message = userInput.value.trim();
+
+    if (!message) return;
+
+    isGenerating = true;
+
+    sendBtn.disabled = true;
+
+    userInput.disabled = true;
+
+    /*
+      사용자 메시지 출력
+    */
+
+    addMessage("user", message);
+
+    addToHistory("user", message);
+
+    /*
+      감정 계산
+    */
+
+    const previousAnger = emotions.anger;
+
+    const analysis = updateEmotionFromMessage(message);
+
+    conversationTurn++;
+
+    lastUserMessage = message;
+
+    renderEmotionUI();
+
+    /*
+      AI 생성 상태 표시
+    */
+
+    typingIndicator.style.display = "block";
+
+    statusDot.style.background = "#ffd166";
+
+    statusText.textContent = "AI 응답 생성 중";
+
+    try {
+
+        /*
+          AI 응답 생성
+        */
+
+        let response = await generateAIReply(
+            message,
+            analysis
+        );
+
+        /*
+          감정 상태와 답변 모드 연결
+        */
+
+        response = applyEmotionToResponse(response);
+
+        /*
+          답변 출력
+        */
+
+        const reply = response.reply ||
+            "지금은 답변을 생성하지 못했어.";
+
+        addMessage("ai", reply);
+
+        addToHistory("assistant", reply);
+
+        lastAssistantReply = reply;
+
+        /*
+          AI가 반환한 감정 설명을 화면에 반영
+        */
+
+        if (response.emotion_note) {
+            emotionNote.textContent =
+                `${response.emotion_note} · ` +
+                `분노 ${round(emotions.anger)}%`;
+        }
+
+        /*
+          최종 감정 상태 유지
+        */
+
+        if (analysis.insult > 0) {
+            preserveAnger(
+                previousAnger,
+                emotions.anger
+            );
+        }
+
+        renderEmotionUI();
+
+    } catch (error) {
+
+        console.error(error);
+
+        addMessage(
+            "ai",
+            "오류가 발생했어. 다시 시도해 줘."
+        );
+
+    } finally {
+
+        isGenerating = false;
+
+        sendBtn.disabled = false;
+
+        userInput.disabled = false;
+
+        typingIndicator.style.display = "none";
+
+        statusDot.style.background = "#55d69e";
+
+        statusText.textContent = "대화 준비 완료";
+
+        userInput.value = "";
+
+        userInput.style.height = "auto";
+
+        userInput.focus();
+
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+}
+
+
+/* =========================================================
+   22. 감정 초기화
+========================================================= */
+
+function resetEmotion() {
+
+    const confirmed = confirm(
+        "감정 수치와 대화 기록을 초기화할까요?"
+    );
+
+    if (!confirmed) return;
+
+    emotions = { ...DEFAULT_EMOTIONS };
+
+    chatHistory = [];
+
+    conversationTurn = 0;
+
+    consecutiveInsults = 0;
+
+    recentOffenses = [];
+
+    angerResistance = 0;
+
+    lastAngerEvent = 0;
+
+    lastUserMessage = "";
+
+    lastAssistantReply = "";
+
+    lastEmotionUpdate = Date.now();
+
+    chatMessages.innerHTML = "";
+
+    addMessage(
+        "ai",
+        "안녕. 오늘은 어떤 이야기를 하고 싶어?"
+    );
+
+    renderEmotionUI();
+}
+
+
+/* =========================================================
+   23. 이벤트 등록
+========================================================= */
+
+sendBtn.addEventListener(
+    "click",
+    sendMessage
+);
+
+userInput.addEventListener(
+    "keydown",
+    event => {
+
+        if (
+            event.key === "Enter" &&
+            !event.shiftKey
+        ) {
+            event.preventDefault();
+
+            sendMessage();
+        }
+    }
+);
+
+userInput.addEventListener(
+    "input",
+    () => {
+
+        userInput.style.height = "auto";
+
+        userInput.style.height =
+            Math.min(
+                userInput.scrollHeight,
+                150
+            ) + "px";
+    }
+);
+
+$("resetBtn").addEventListener(
+    "click",
+    resetEmotion
+);
+
+window.addEventListener(
+    "resize",
+    resizeCanvas
+);
+
+
+/* =========================================================
+   24. 초기 실행
+========================================================= */
+
+function init() {
+
+    resizeCanvas();
+
+    renderEmotionUI();
+
+    animateAvatar();
+
+    lastEmotionUpdate = Date.now();
+}
+
+init();
+
+</script>
+
 </body>
 </html>
