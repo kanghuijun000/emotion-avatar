@@ -110,8 +110,7 @@
           id="textInput"
           placeholder="메시지를 입력해보세요..."
           rows="3"
-          class="w-full bg-slate-900/80 border border-white/10 rounded-2xl p-3 pr-20 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none shadow-inner">
-        </textarea>
+          class="w-full bg-slate-900/80 border border-white/10 rounded-2xl p-3 pr-20 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none shadow-inner"></textarea>
 
         <div class="absolute bottom-3 right-3 flex items-center gap-1.5">
 
@@ -169,6 +168,8 @@
     const sendBtn = document.getElementById("sendBtn");
     const aiReplyText = document.getElementById("aiReplyText");
     const textInput = document.getElementById("textInput");
+    // HTML 태그 내부의 공백/줄바꿈이 입력값으로 남지 않도록 초기화
+    textInput.value = "";
     const errorBox = document.getElementById("errorBox");
     const loading = document.getElementById("loading");
 
@@ -773,7 +774,7 @@
         "죄송",
         "잘못했",
         "사과할게",
-        "사과해",
+        "용서해줘",
         "용서해",
         "화 풀어",
         "화해하자"
@@ -892,6 +893,18 @@
           directInsult = true;
         }
 
+        // "병신"처럼 단독으로 입력한 모욕도 AI를 향한 말로 판단한다.
+        const standaloneInsult = lower
+          .replace(/[!！?？.。~～…\s]+/g, "")
+          .replace(/^(야|이봐|너|니|네)$/g, "");
+        if (
+          hasInsultWord &&
+          standaloneInsult.length > 0 &&
+          insultPatterns.some(pattern => standaloneInsult === pattern || standaloneInsult.startsWith(pattern))
+        ) {
+          directInsult = true;
+        }
+
         if (isAggressive && !isSelfDirected) {
           directInsult = true;
         }
@@ -958,6 +971,46 @@
      * ---------------------------------------------------------
      */
 
+    // 사과의 태도와 구체성에 따라 분노 감소량을 계산한다.
+    // 점수는 문장 길이보다 책임 인정, 진정성, 재발 방지 의지를 중심으로 산정한다.
+    function getApologyStrength(text) {
+      const lower = text.toLowerCase().trim();
+
+      const basicApology = [
+        "미안", "죄송", "사과할게", "사과합니다", "잘못했어",
+        "잘못했습니다", "용서해줘", "용서해 주세요"
+      ];
+      const responsibility = [
+        "내 잘못", "내가 잘못", "내 책임", "내가 틀렸", "내가 심했",
+        "내가 무례", "내가 상처", "내가 잘못한", "내 행동이 잘못"
+      ];
+      const sincerity = [
+        "진심", "진심으로", "정말 미안", "정말 죄송", "깊이 사과",
+        "진정으로", "마음 깊이", "진심 어린", "진심어린"
+      ];
+      const repair = [
+        "다시는 그러지", "반복하지 않을", "앞으로는", "고치겠", "바꾸겠",
+        "주의할게", "조심할게", "행동을 바꿀", "같은 일 없도록"
+      ];
+      const acknowledgment = [
+        "네가 화난", "네가 불쾌", "기분 나빴", "상처받", "불편했",
+        "화가 날 만", "그럴 만", "네 입장", "네 감정"
+      ];
+
+      const containsAny = list => list.some(word => lower.includes(word));
+      let score = 0;
+
+      if (containsAny(basicApology)) score += 0.08;
+      if (containsAny(responsibility)) score += 0.14;
+      if (containsAny(sincerity)) score += 0.16;
+      if (containsAny(repair)) score += 0.12;
+      if (containsAny(acknowledgment)) score += 0.10;
+
+      // 짧은 형식적 사과는 작게, 구체적인 사과는 더 크게 낮춘다.
+      if (score === 0) return 0;
+      return Math.min(0.60, score);
+    }
+
     function updateAngerFromUserMessage(text) {
       getEmotionTimeRecovery();
 
@@ -968,11 +1021,13 @@
        * 한 번의 사과로 완전히 초기화하지 않는다.
        */
       if (intent.isApology) {
-        angerLevel = Math.max(
-          0,
-          angerLevel -
-          EMOTION_CONFIG.anger.apologyDecrease
-        );
+        const apologyStrength = getApologyStrength(text);
+        // 단순한 사과는 소폭, 책임 인정과 진정성·개선 의지가 담긴 사과는 더 크게 감소.
+        const apologyDecrease = apologyStrength > 0
+          ? apologyStrength
+          : EMOTION_CONFIG.anger.apologyDecrease;
+
+        angerLevel = Math.max(0, angerLevel - apologyDecrease);
 
         consecutiveInsults = 0;
 
@@ -986,7 +1041,9 @@
 
         return {
           intent,
-          angerChange: -EMOTION_CONFIG.anger.apologyDecrease
+          angerChange: -apologyDecrease,
+          apologyStrength,
+          apologyDecrease
         };
       }
 
