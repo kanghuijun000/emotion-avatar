@@ -224,8 +224,10 @@
         insultIncrease: 0.18,
         repeatedInsultIncrease: 0.12,
         severeInsultIncrease: 0.30,
-        apologyDecrease: 0.10,
-        recoveryPerMinute: 0.015,
+        apologyDecrease: 0.14,
+        normalTurnRecovery: 0.045,
+        acceptedApologyRecovery: 0.05,
+        recoveryPerMinute: 0.02,
         highThreshold: 0.60,
         extremeThreshold: 0.85
       }
@@ -1000,15 +1002,15 @@
       const containsAny = list => list.some(word => lower.includes(word));
       let score = 0;
 
-      if (containsAny(basicApology)) score += 0.08;
-      if (containsAny(responsibility)) score += 0.14;
-      if (containsAny(sincerity)) score += 0.16;
-      if (containsAny(repair)) score += 0.12;
-      if (containsAny(acknowledgment)) score += 0.10;
+      if (containsAny(basicApology)) score += 0.12;
+      if (containsAny(responsibility)) score += 0.18;
+      if (containsAny(sincerity)) score += 0.18;
+      if (containsAny(repair)) score += 0.14;
+      if (containsAny(acknowledgment)) score += 0.12;
 
       // 짧은 형식적 사과는 작게, 구체적인 사과는 더 크게 낮춘다.
       if (score === 0) return 0;
-      return Math.min(0.60, score);
+      return Math.min(0.75, score);
     }
 
     function updateAngerFromUserMessage(text) {
@@ -1058,9 +1060,22 @@
       if (!intent.directInsult) {
         consecutiveInsults = 0;
 
+        // 모욕이 아닌 평범한 대화가 이어지면 분노가 조금씩 자연스럽게 풀린다.
+        // 한 번에 초기화하지 않고, 대화가 계속될수록 점진적으로 낮춘다.
+        const before = angerLevel;
+        angerLevel = Math.max(
+          0,
+          angerLevel - EMOTION_CONFIG.anger.normalTurnRecovery
+        );
+
+        if (angerLevel < 0.70) {
+          conversationBlocked = false;
+        }
+
         return {
           intent,
-          angerChange: 0
+          angerChange: angerLevel - before,
+          normalRecovery: before - angerLevel
         };
       }
 
@@ -1121,6 +1136,20 @@
      * AI 감정과 누적 분노를 결합
      * ---------------------------------------------------------
      */
+
+    function getAIReconciliationStrength(reply) {
+      const lower = String(reply || "").toLowerCase();
+      const acceptancePatterns = [
+        "사과 받아줄게", "사과 받아줄게", "사과를 받아", "사과 받아",
+        "용서할게", "용서해줄게", "괜찮아", "이해할게", "이해해줄게",
+        "받아들일게", "화 풀게", "이제 괜찮아", "괜찮아졌어",
+        "알겠어, 받아", "알겠어 받아"
+      ];
+
+      return acceptancePatterns.some(word => lower.includes(word))
+        ? EMOTION_CONFIG.anger.acceptedApologyRecovery
+        : 0;
+    }
 
     function mergeAIEmotionWithPersistentAnger(
       aiEmotions,
@@ -1191,8 +1220,10 @@
         return `
 현재 분노가 매우 높은 상태다.
 답변에서 실제로 화가 난 감정을 분명하게 드러내.
-평소의 친절한 말투를 유지하지 말고 단호하고 날카로운 말투를 사용해.
-필요하면 "그만해", "계속 그러면 나도 화낼 수밖에 없어"처럼 강한 불쾌감을 표현할 수 있다.
+평소보다 짧고 단호한 말투를 사용할 수 있다.
+단, 사용자가 현재 일반적인 일상 대화나 게임 이야기 등을 하고 있다면 그 말투 자체를 문제 삼거나 말투를 지적하지 마.
+말투 지적은 사용자가 AI를 직접 모욕하거나 공격적인 표현을 반복하는 등 실제로 지적할 만한 행동을 했을 때만 제한적으로 사용해.
+필요하면 "그만해"처럼 강한 불쾌감을 표현할 수 있다.
 사용자를 모욕하거나 위협하지는 마.
 `;
       }
@@ -1202,6 +1233,8 @@
 현재 분노가 상당히 높은 상태다.
 답변에서 불쾌함과 화가 난 감정을 명확하게 드러내.
 너무 아무렇지 않게 친절한 답변을 하지 마.
+하지만 사용자가 평범한 일상 대화나 게임 이야기 등을 하고 있다면 말투를 지적하지 마.
+말투 지적은 AI를 향한 직접적인 모욕이나 반복적인 공격적 표현이 있을 때처럼 실제 근거가 있는 경우에만 사용해.
 `;
       }
 
@@ -1386,6 +1419,8 @@ ${JSON.stringify(text)}
 13. 평범한 메시지가 들어왔다고 해서 기존 분노를 자동으로 0으로 만들지 마.
 14. 이전 분노가 높다면 답변에서도 그 감정이 어느 정도 이어져야 한다.
 15. 현재 감정과 답변의 말투가 서로 모순되지 않게 해.
+16. 분노가 높다는 이유만으로 사용자의 말투를 지적하지 마. 사용자가 평범한 일상 대화, 게임 이야기, 질문, 농담 등을 하고 있다면 그 말투는 문제 삼지 마.
+17. "말투가 왜 그래", "그런 식으로 말하지 마" 같은 말투 지적은 사용자가 AI를 직접 모욕하거나 공격적인 표현을 반복하는 등 명확한 근거가 있을 때만 제한적으로 해. 분노 수치 자체는 말투 지적의 근거가 아니다.
 
 [현재 AI의 행동 지침]
 ${angerInstruction}
@@ -1413,6 +1448,7 @@ ${angerInstruction}
 분노가 0.90 이상이면 극도로 화난 상태이며 대화를 거부할 수도 있다.
 
 반드시 현재 분노 수치와 답변의 어조가 일치해야 한다.
+단, 높은 분노는 "말투 지적"을 자동으로 의미하지 않는다. 사용자가 평범하게 대화하고 있다면 화가 풀리는 과정에서 자연스럽게 대화하고, 사용자의 말투를 트집 잡지 마.
 
 [출력 규칙]
 반드시 JSON 하나만 출력해.
@@ -1455,6 +1491,24 @@ JSON 바깥에 설명이나 마크다운을 쓰지 마.
           throw new Error(
             "AI 답변이 비어 있습니다."
           );
+        }
+
+        // AI가 사과를 받아주겠다고 실제로 답했다면
+        // 그 화해의 의미를 분노 수치에도 추가로 반영한다.
+        if (userIntent.isApology) {
+          const reconciliationRecovery =
+            getAIReconciliationStrength(reply);
+
+          if (reconciliationRecovery > 0) {
+            angerLevel = Math.max(
+              0,
+              angerLevel - reconciliationRecovery
+            );
+
+            if (angerLevel < 0.70) {
+              conversationBlocked = false;
+            }
+          }
         }
 
         /*
