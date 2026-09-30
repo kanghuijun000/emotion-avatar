@@ -172,6 +172,8 @@
     textInput.value = "";
     const errorBox = document.getElementById("errorBox");
     const loading = document.getElementById("loading");
+    const originalSendButtonHTML = sendBtn.innerHTML;
+    const originalSendButtonTitle = sendBtn.title;
 
     const emotionNames = [
       "happy", "sad", "angry",
@@ -205,6 +207,8 @@
     let particles = [];
     let frameCount = 0;
     let isSending = false;
+    let sendRequestId = 0;
+    let cancelCurrentRequest = null;
 
     // 분노 누적 상태
     let angerLevel = 0;
@@ -963,8 +967,118 @@
         severeInsult,
         isSelfDirected,
         isExplanatory,
-        isPositive
+        isPositive,
+        hasInsultWord,
+        directlyTargetsAI,
+        isAggressive
       };
+    }
+
+    /*
+     * AI의 문맥 판정을 이용해 JS의 1차 의도 판정을 보정한다.
+     *
+     * 중요한 원칙:
+     * - JS 판정은 후보일 뿐이며, AI가 충분한 확신을 가진 경우에만 수정한다.
+     * - AI가 애매하거나 형식이 잘못되면 기존 JS 판정을 그대로 유지한다.
+     * - 칭찬/인용/설명/자기 자신을 향한 욕설을 AI가 확인하면
+     *   잘못 누적된 분노를 되돌릴 수 있다.
+     */
+    function applyAIContextToUserIntent(baseIntent, analysis) {
+      if (!analysis || typeof analysis !== "object") {
+        return { ...baseIntent, aiContextApplied: false };
+      }
+
+      const confidence = normalizeNumber(analysis.confidence, 0);
+
+      if (confidence < 0.72) {
+        return { ...baseIntent, aiContextApplied: false };
+      }
+
+      const target = String(analysis.target || "").toLowerCase().trim();
+      const speechAct = String(analysis.speech_act || "").toLowerCase().trim();
+      const valence = String(analysis.valence || "").toLowerCase().trim();
+
+      const aiDirectToAI =
+        analysis.direct_to_ai === true ||
+        target === "ai";
+
+      const aiSelfDirected =
+        analysis.self_directed === true ||
+        target === "self";
+
+      const aiInsult =
+        analysis.is_insult === true ||
+        speechAct === "insult" ||
+        speechAct === "attack";
+
+      const aiPraise =
+        analysis.is_praise === true ||
+        speechAct === "praise" ||
+        speechAct === "compliment" ||
+        valence === "positive";
+
+      const aiQuoteOrExplanation =
+        analysis.is_quote_or_explanation === true ||
+        speechAct === "quote" ||
+        speechAct === "explanation" ||
+        speechAct === "question";
+
+      const aiApology =
+        analysis.is_apology === true ||
+        speechAct === "apology";
+
+      const corrected = { ...baseIntent };
+
+      // AI가 확실하게 칭찬/긍정이라고 판단하면 욕설처럼 보이는 단어가
+      // 섞여 있어도 직접 모욕으로 처리하지 않는다.
+      if (aiPraise && !aiInsult && !aiDirectToAI) {
+        corrected.directInsult = false;
+        corrected.severeInsult = false;
+        corrected.isPositive = true;
+      }
+
+      // 인용/설명/질문은 욕설 단어가 포함되어도 공격으로 확정하지 않는다.
+      if (aiQuoteOrExplanation && !aiDirectToAI) {
+        corrected.directInsult = false;
+        corrected.severeInsult = false;
+        corrected.isExplanatory = true;
+      }
+
+      // AI가 자기 자신을 향한 표현이라고 확실하게 판단하면 AI에 대한
+      // 모욕 누적을 막는다.
+      if (aiSelfDirected && !aiDirectToAI) {
+        corrected.directInsult = false;
+        corrected.severeInsult = false;
+        corrected.isSelfDirected = true;
+      }
+
+      // AI가 명확히 AI를 향한 공격이라고 판단하면 JS가 놓친 경우도 보정한다.
+      // 단, 단순한 부정적 표현만으로는 공격으로 올리지 않는다.
+      if (aiDirectToAI && aiInsult && !aiPraise && !aiQuoteOrExplanation) {
+        corrected.directInsult = true;
+        corrected.isSelfDirected = false;
+      }
+
+      if (aiApology) {
+        corrected.isApology = true;
+      }
+
+      if (analysis.is_aggressive === true && aiDirectToAI && aiInsult) {
+        corrected.isAggressive = true;
+      }
+
+      // 심한 모욕도 AI가 직접 공격이라고 확인한 경우에만 유지/승격한다.
+      if (!corrected.directInsult) {
+        corrected.severeInsult = false;
+      }
+
+      corrected.aiContextApplied = true;
+      corrected.aiConfidence = confidence;
+      corrected.aiSpeechAct = speechAct;
+      corrected.aiTarget = target;
+      corrected.aiValence = valence;
+
+      return corrected;
     }
 
     /*
@@ -1285,10 +1399,44 @@
      * ---------------------------------------------------------
      */
 
+    function setSendingButtonState(sending) {
+      if (sending) {
+        sendBtn.disabled = false;
+        sendBtn.title = "입력한 말 취소";
+        sendBtn.classList.remove("bg-sky-600", "hover:bg-sky-500");
+        sendBtn.classList.add("bg-red-600", "hover:bg-red-500");
+        sendBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg"
+            fill="none" viewBox="0 0 24 24"
+            stroke-width="2.5" stroke="currentColor"
+            class="w-3.5 h-3.5">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M6 6l12 12M18 6L6 18"/>
+          </svg>
+        `;
+      } else {
+        sendBtn.disabled = false;
+        sendBtn.title = originalSendButtonTitle;
+        sendBtn.classList.remove("bg-red-600", "hover:bg-red-500");
+        sendBtn.classList.add("bg-sky-600", "hover:bg-sky-500");
+        sendBtn.innerHTML = originalSendButtonHTML;
+      }
+    }
+
+    function cancelSending() {
+      if (!isSending || !cancelCurrentRequest) return;
+      cancelCurrentRequest();
+    }
+
     async function sendMessage() {
+      if (isSending) {
+        cancelSending();
+        return;
+      }
+
       const text = textInput.value.trim();
 
-      if (!text || isSending) return;
+      if (!text) return;
 
       if (!window.puter || !puter.ai) {
         showError(
@@ -1297,69 +1445,75 @@
         return;
       }
 
+      const requestId = ++sendRequestId;
+      const previousState = {
+        angerLevel,
+        consecutiveInsults,
+        conversationBlocked,
+        lastEmotionUpdate,
+        targetEmotions: { ...targetEmotions },
+        currentEmotions: { ...currentEmotions },
+        chatHistory: chatHistory.map(item => ({ ...item })),
+        replyText: aiReplyText.textContent,
+        errorText: errorBox.textContent,
+        errorHidden: errorBox.classList.contains("hidden")
+      };
+
+      let cancelled = false;
+
+      cancelCurrentRequest = () => {
+        if (!isSending || requestId !== sendRequestId) return;
+        cancelled = true;
+        sendRequestId++;
+
+        // "전송되지 않은 것"으로 되돌린다.
+        angerLevel = previousState.angerLevel;
+        consecutiveInsults = previousState.consecutiveInsults;
+        conversationBlocked = previousState.conversationBlocked;
+        lastEmotionUpdate = previousState.lastEmotionUpdate;
+        targetEmotions = { ...previousState.targetEmotions };
+        currentEmotions = { ...previousState.currentEmotions };
+        chatHistory = previousState.chatHistory.map(item => ({ ...item }));
+
+        textInput.value = text;
+        aiReplyText.textContent = previousState.replyText;
+
+        if (previousState.errorHidden) {
+          hideError();
+        } else {
+          errorBox.textContent = previousState.errorText;
+          errorBox.classList.remove("hidden");
+        }
+
+        isSending = false;
+        cancelCurrentRequest = null;
+        setSendingButtonState(false);
+        loading.classList.add("hidden");
+        textInput.focus();
+      };
+
       isSending = true;
-      sendBtn.disabled = true;
+      setSendingButtonState(true);
       loading.classList.remove("hidden");
       hideError();
 
       textInput.value = "";
 
-      /*
-       * 현재 사용자 입력을 먼저 분석한다.
-       */
+      // 메시지 자체의 영향을 되돌릴 기준을 잡기 전에
+      // 시간 경과에 따른 자연 회복은 먼저 적용한다.
+      getEmotionTimeRecovery();
+
+      const angerBeforeMessage = angerLevel;
+      const consecutiveInsultsBeforeMessage = consecutiveInsults;
+      const blockedBeforeMessage = conversationBlocked;
+
       const angerResult =
         updateAngerFromUserMessage(text);
 
-      const userIntent =
+      let userIntent =
         angerResult.intent;
 
-      /*
-       * 극도의 분노 상태에서
-       * 사용자가 계속 직접적인 모욕을 하는 경우
-       * AI가 대화를 거부할 수 있도록 한다.
-       *
-       * 단, 사과 메시지는 허용한다.
-       */
-      if (
-        conversationBlocked &&
-        !userIntent.isApology &&
-        userIntent.directInsult
-      ) {
-        const extremeReply =
-          angerLevel >= 0.95
-            ? "그만해. 나 지금 정말 화났어. 계속 이런 식으로 말하면 더 이상 대화하지 않을 거야."
-            : "그만해 줘. 지금은 정말 화가 나 있어서 이런 식으로 대화하고 싶지 않아.";
-
-        targetEmotions = applyAngerToEmotions(
-          {
-            happy: 0,
-            sad: 0.02,
-            angry: 1,
-            surprised: 0,
-            fear: 0,
-            disgust: 0.05,
-            neutral: 0
-          },
-          angerLevel
-        );
-
-        chatHistory.push(
-          { role: "user", content: text },
-          { role: "assistant", content: extremeReply }
-        );
-
-        if (chatHistory.length > 40) {
-          chatHistory = chatHistory.slice(-40);
-        }
-
-        aiReplyText.textContent = extremeReply;
-
-        isSending = false;
-        sendBtn.disabled = false;
-        loading.classList.add("hidden");
-
-        return;
-      }
+      const preliminaryUserIntent = { ...userIntent };
 
       const previousEmotionSummary =
         getEmotionSummary(targetEmotions);
@@ -1421,6 +1575,11 @@ ${JSON.stringify(text)}
 15. 현재 감정과 답변의 말투가 서로 모순되지 않게 해.
 16. 분노가 높다는 이유만으로 사용자의 말투를 지적하지 마. 사용자가 평범한 일상 대화, 게임 이야기, 질문, 농담 등을 하고 있다면 그 말투는 문제 삼지 마.
 17. "말투가 왜 그래", "그런 식으로 말하지 마" 같은 말투 지적은 사용자가 AI를 직접 모욕하거나 공격적인 표현을 반복하는 등 명확한 근거가 있을 때만 제한적으로 해. 분노 수치 자체는 말투 지적의 근거가 아니다.
+18. 이전 대화에 관한 질문을 받았을 때는 제공된 [이전 대화]에 실제로 있는 내용만 기억하고 있다고 말해. 기록에 없는 내용을 추측해서 기억하는 것처럼 말하지 마.
+19. 사용자가 "전에 내가 말한 것 기억나?", "우리가 전에 얘기했잖아"처럼 과거 대화를 물었는데 관련 내용이 [이전 대화]에 없으면 솔직하게 "지금 확인할 수 있는 이전 대화 기록에는 그 내용이 없어서 잘 모르겠어" 또는 비슷한 표현으로 답해.
+20. 과거 대화를 기억하는지 묻는 질문에서는 "기억나/안 나"만 답하지 마. 사용자가 왜 그 기억을 확인하려는지 현재 질문과 직전 대화의 맥락을 먼저 파악하고, 기억나는 내용이 있다면 그 내용과 함께 사용자가 실제로 궁금해하는 후속 질문이나 의도에도 답해.
+21. 기억나는 내용이 일부뿐이라면 확실하게 확인되는 부분과 모르는 부분을 구분해서 말해. 기억나지 않는 세부사항을 추측해서 채우지 마.
+22. "메모리를 확인했는데 없다"고 말하는 경우에도 실제로 제공된 기록을 확인했다는 범위에서만 말해. 확인할 수 없는 별도의 장기 메모리나 외부 기록을 확인했다고 주장하지 마.
 
 [현재 AI의 행동 지침]
 ${angerInstruction}
@@ -1439,6 +1598,10 @@ ${angerInstruction}
 - 자기 자신을 욕한 경우에는 AI가 공격받았다고 판단하지 마.
 - 단어 하나만 보고 감정을 판단하지 말고 문맥을 고려해.
 - 현재 메시지와 이전 대화를 함께 고려해.
+- 과거 대화를 묻는 질문에서는 [이전 대화]에 실제로 포함된 내용만 근거로 답해.
+- 먼저 사용자가 그 기억을 왜 확인하려는지 현재 질문과 직전 대화의 맥락을 파악하고, 기억나는 내용이 있다면 단순히 "기억나"라고 끝내지 말고 그 의도에 맞는 답을 이어서 해.
+- [이전 대화]에 관련 내용이 없으면 기억하는 척하지 말고, "지금 확인할 수 있는 이전 대화 기록에는 없어서 잘 모르겠어"처럼 솔직하게 밝혀.
+- 기억나는 부분과 확실하지 않은 부분을 구분하고, 과거 대화의 구체적인 내용, 발언, 사건을 [이전 대화]에서 찾을 수 없다면 만들어내지 마.
 
 [감정과 답변의 연결]
 분노가 0~0.30이면 자연스럽고 편안한 말투.
@@ -1454,7 +1617,28 @@ ${angerInstruction}
 반드시 JSON 하나만 출력해.
 JSON 바깥에 설명이나 마크다운을 쓰지 마.
 
+중요: 위의 [이번 입력 분석]은 JS가 만든 1차 후보일 뿐이며 틀릴 수 있다.
+반드시 현재 문장과 이전 대화의 맥락을 독립적으로 다시 판단해.
+특히 다음을 구분해:
+- 욕설 단어가 있어도 칭찬, 농담, 인용, 설명, 질문, 자기 자신을 향한 표현이면 AI를 공격한 것으로 판단하지 마.
+- 칭찬 표현이 욕설이나 강한 단어를 포함하더라도 실제 의도가 칭찬이면 is_praise=true로 판단해.
+- 실제로 AI를 향한 직접적인 모욕이면 is_insult=true, direct_to_ai=true로 판단해.
+- 문맥이 애매하면 confidence를 낮춰.
+
 {
+  "user_analysis": {
+    "target": "ai|self|other|none|unclear",
+    "speech_act": "insult|praise|apology|question|quote|explanation|neutral|attack|other",
+    "valence": "positive|negative|neutral|mixed",
+    "direct_to_ai": false,
+    "self_directed": false,
+    "is_insult": false,
+    "is_praise": false,
+    "is_apology": false,
+    "is_quote_or_explanation": false,
+    "is_aggressive": false,
+    "confidence": 0.0
+  },
   "emotions": {
     "happy": 0.0,
     "sad": 0.0,
@@ -1471,6 +1655,8 @@ JSON 바깥에 설명이나 마크다운을 쓰지 마.
       try {
         const response =
           await puter.ai.chat(prompt);
+
+        if (cancelled || requestId !== sendRequestId) return;
 
         const responseText =
           extractResponseText(response);
@@ -1493,8 +1679,54 @@ JSON 바깥에 설명이나 마크다운을 쓰지 마.
           );
         }
 
-        // AI가 사과를 받아주겠다고 실제로 답했다면
-        // 그 화해의 의미를 분노 수치에도 추가로 반영한다.
+        if (cancelled || requestId !== sendRequestId) return;
+
+        // AI가 현재 입력의 실제 의도를 문맥으로 재판정한다.
+        // 애매하면 기존 JS 판정을 유지한다.
+        const contextCorrectedIntent =
+          applyAIContextToUserIntent(
+            preliminaryUserIntent,
+            parsed.user_analysis
+          );
+
+        // JS가 잘못 누적한 분노/연속 모욕을 AI가 확실하게
+        // 칭찬·인용·설명 등으로 판정한 경우 원상 복구한다.
+        if (
+          preliminaryUserIntent.directInsult &&
+          !contextCorrectedIntent.directInsult
+        ) {
+          angerLevel = angerBeforeMessage;
+          consecutiveInsults = consecutiveInsultsBeforeMessage;
+          conversationBlocked = blockedBeforeMessage;
+        }
+
+        // 반대로 JS가 놓친 명확한 AI 대상 모욕이면 AI 판정에 따라
+        // 최소 한 번의 모욕 누적을 적용한다.
+        if (
+          !preliminaryUserIntent.directInsult &&
+          contextCorrectedIntent.directInsult &&
+          contextCorrectedIntent.aiContextApplied
+        ) {
+          const addedIncrease =
+            EMOTION_CONFIG.anger.insultIncrease +
+            (contextCorrectedIntent.severeInsult
+              ? EMOTION_CONFIG.anger.severeInsultIncrease
+              : 0);
+
+          angerLevel = Math.min(
+            1,
+            angerLevel + addedIncrease
+          );
+          consecutiveInsults =
+            consecutiveInsultsBeforeMessage + 1;
+
+          if (angerLevel >= EMOTION_CONFIG.anger.extremeThreshold) {
+            conversationBlocked = true;
+          }
+        }
+
+        userIntent = contextCorrectedIntent;
+
         if (userIntent.isApology) {
           const reconciliationRecovery =
             getAIReconciliationStrength(reply);
@@ -1511,28 +1743,47 @@ JSON 바깥에 설명이나 마크다운을 쓰지 마.
           }
         }
 
-        /*
-         * AI 감정과 지속되는 분노를 결합한다.
-         *
-         * 여기서 중요한 점은:
-         *
-         * 이전 코드처럼 AI가 이번 한 번의 답변에서
-         * angry: 0.01을 반환했다고 해서
-         * 이미 누적된 분노를 0.01로 덮어쓰지 않는다.
-         */
+        if (
+          conversationBlocked &&
+          !userIntent.isApology &&
+          userIntent.directInsult
+        ) {
+          const extremeReply =
+            angerLevel >= 0.95
+              ? "그만해. 나 지금 정말 화났어. 계속 이런 식으로 말하면 더 이상 대화하지 않을 거야."
+              : "그만해 줘. 지금은 정말 화가 나 있어서 이런 식으로 대화하고 싶지 않아.";
+
+          targetEmotions = applyAngerToEmotions(
+            {
+              happy: 0,
+              sad: 0.02,
+              angry: 1,
+              surprised: 0,
+              fear: 0,
+              disgust: 0.05,
+              neutral: 0
+            },
+            angerLevel
+          );
+
+          chatHistory.push(
+            { role: "user", content: text },
+            { role: "assistant", content: extremeReply }
+          );
+
+          if (chatHistory.length > 40) {
+            chatHistory = chatHistory.slice(-40);
+          }
+
+          aiReplyText.textContent = extremeReply;
+          return;
+        }
+
         targetEmotions =
           mergeAIEmotionWithPersistentAnger(
             parsed.emotions,
             userIntent
           );
-
-        /*
-         * 직접적인 모욕이 아니라면
-         * 연속 모욕 카운터는 이미 앞에서 0으로 처리된다.
-         *
-         * 따라서 일반적인 대화가 들어왔다고 해서
-         * 누적 분노 자체는 초기화되지 않는다.
-         */
 
         chatHistory.push(
           {
@@ -1545,9 +1796,6 @@ JSON 바깥에 설명이나 마크다운을 쓰지 마.
           }
         );
 
-        /*
-         * 대화 기록이 지나치게 길어지지 않도록 제한
-         */
         if (chatHistory.length > 40) {
           chatHistory =
             chatHistory.slice(-40);
@@ -1556,6 +1804,8 @@ JSON 바깥에 설명이나 마크다운을 쓰지 마.
         aiReplyText.textContent = reply;
 
       } catch (error) {
+        if (cancelled || requestId !== sendRequestId) return;
+
         console.error(
           "AI 처리 오류:",
           error
@@ -1566,8 +1816,11 @@ JSON 바깥에 설명이나 마크다운을 쓰지 마.
           (error?.message || "알 수 없는 오류")
         );
       } finally {
+        if (cancelled || requestId !== sendRequestId) return;
+
         isSending = false;
-        sendBtn.disabled = false;
+        cancelCurrentRequest = null;
+        setSendingButtonState(false);
         loading.classList.add("hidden");
       }
     }
