@@ -219,6 +219,9 @@
     // 극도의 분노 상태에서 대화 중단 여부
     let conversationBlocked = false;
 
+    // 사과·반성 등 실제 회복 신호가 확인된 뒤에만 분노 회복을 허용한다.
+    let angerRecoveryUnlocked = false;
+
     // 마지막으로 감정을 변경한 시각
     let lastEmotionUpdate = Date.now();
 
@@ -229,7 +232,7 @@
         repeatedInsultIncrease: 0.12,
         severeInsultIncrease: 0.30,
         apologyDecrease: 0.14,
-        normalTurnRecovery: 0.045,
+        normalTurnRecovery: 0.015,
         acceptedApologyRecovery: 0.05,
         recoveryPerMinute: 0.02,
         highThreshold: 0.60,
@@ -736,7 +739,10 @@
         elapsedMinutes *
         EMOTION_CONFIG.anger.recoveryPerMinute;
 
-      if (angerLevel > 0) {
+      // 단순히 시간이 지났다는 이유만으로 분노를 낮추지 않는다.
+      // 사과·반성·책임 인정 등의 회복 신호가 먼저 확인된 경우에만
+      // 시간이 지나면서 서서히 분노가 풀리도록 한다.
+      if (angerRecoveryUnlocked && angerLevel > 0) {
         angerLevel = Math.max(
           0,
           angerLevel - recovery
@@ -788,6 +794,41 @@
 
       const isApology =
         apologyPatterns.some(pattern =>
+          lower.includes(pattern)
+        );
+
+      /*
+       * 사과라는 단어를 직접 쓰지 않아도
+       * 자신의 행동을 인정하거나 반성·개선 의지를 보이는 경우를
+       * 분노 회복의 시작 신호로 본다.
+       */
+      const recoveryAttemptPatterns = [
+        "반성할게",
+        "반성하겠습니다",
+        "반성해야",
+        "반성하고",
+        "내 잘못",
+        "내가 잘못",
+        "내가 너무했",
+        "내가 심했",
+        "내가 선 넘었",
+        "다시는 안 그럴",
+        "다시는 그러지 않",
+        "앞으로는 안 그럴",
+        "앞으로는 그러지 않",
+        "조심할게",
+        "조심하겠",
+        "고칠게",
+        "고치겠습니다",
+        "고쳐볼게",
+        "내 행동을 돌아보",
+        "잘못을 인정",
+        "이해했어",
+        "이해했습니다"
+      ];
+
+      const isRecoveryAttempt =
+        recoveryAttemptPatterns.some(pattern =>
           lower.includes(pattern)
         );
 
@@ -963,6 +1004,7 @@
 
       return {
         isApology,
+        isRecoveryAttempt,
         directInsult,
         severeInsult,
         isSelfDirected,
@@ -1128,16 +1170,27 @@
     }
 
     function updateAngerFromUserMessage(text) {
-      getEmotionTimeRecovery();
-
       const intent = detectUserIntent(text);
 
       /*
        * 사과는 분노를 낮추지만
        * 한 번의 사과로 완전히 초기화하지 않는다.
        */
-      if (intent.isApology) {
-        const apologyStrength = getApologyStrength(text);
+      if (intent.isApology || intent.isRecoveryAttempt) {
+        // 사과·반성·책임 인정·개선 의지가 확인되면
+        // 그 시점부터만 장기적인 회복을 허용한다.
+        angerRecoveryUnlocked = true;
+        getEmotionTimeRecovery();
+
+        const apologyStrength = intent.isApology
+          ? getApologyStrength(text)
+          : 0;
+
+        // 명시적인 사과가 아니더라도 실제 반성/개선 의지가 있으면
+        // 회복의 문을 열되, 사과만큼 크게 즉시 낮추지는 않는다.
+        const recoveryAttemptDecrease = intent.isRecoveryAttempt && !intent.isApology
+          ? 0.03
+          : 0;
         // 단순한 사과는 소폭, 책임 인정과 진정성·개선 의지가 담긴 사과는 더 크게 감소.
         const apologyDecrease = apologyStrength > 0
           ? apologyStrength
@@ -1172,15 +1225,19 @@
        * 이미 쌓인 분노를 리셋하지 않는다.
        */
       if (!intent.directInsult) {
+        getEmotionTimeRecovery();
         consecutiveInsults = 0;
 
-        // 모욕이 아닌 평범한 대화가 이어지면 분노가 조금씩 자연스럽게 풀린다.
-        // 한 번에 초기화하지 않고, 대화가 계속될수록 점진적으로 낮춘다.
+        // 회복 신호가 아직 없으면 평범한 대화만으로 분노가 내려가지 않는다.
+        // 회복 단계에 들어간 뒤에만 대화가 이어질수록 조금씩 낮아진다.
         const before = angerLevel;
-        angerLevel = Math.max(
-          0,
-          angerLevel - EMOTION_CONFIG.anger.normalTurnRecovery
-        );
+
+        if (angerRecoveryUnlocked) {
+          angerLevel = Math.max(
+            0,
+            angerLevel - EMOTION_CONFIG.anger.normalTurnRecovery
+          );
+        }
 
         if (angerLevel < 0.70) {
           conversationBlocked = false;
@@ -1189,13 +1246,18 @@
         return {
           intent,
           angerChange: angerLevel - before,
-          normalRecovery: before - angerLevel
+          normalRecovery: before - angerLevel,
+          recoveryUnlocked: angerRecoveryUnlocked
         };
       }
 
       /*
        * 직접적인 모욕이면 누적한다.
+       * 다시 공격이 시작되면 회복 단계도 잠시 잠근다.
+       * 이후 다시 사과/반성 신호가 나오면 회복을 재개한다.
        */
+      angerRecoveryUnlocked = false;
+      getEmotionTimeRecovery();
       consecutiveInsults++;
 
       let increase =
